@@ -131,6 +131,24 @@ input.sticky-val:focus{outline:none;}
 .modal-item-meta{font-size:10px;color:var(--text-tertiary);}
 .modal-btns{display:flex;gap:8px;justify-content:flex-end;}
 .modal-empty{font-size:12px;color:var(--text-tertiary);text-align:center;padding:20px 0;}
+
+/* ===== 모바일 휴지통 ===== */
+.trash-zone{
+  position:fixed;bottom:0;left:0;right:0;
+  height:72px;
+  background:rgba(163,48,48,0.92);
+  display:flex;align-items:center;justify-content:center;
+  gap:10px;
+  font-size:15px;font-weight:700;color:#fff;
+  z-index:9000;
+  transform:translateY(100%);
+  transition:transform .22s cubic-bezier(.4,0,.2,1);
+  border-radius:16px 16px 0 0;
+  box-shadow:0 -4px 20px rgba(163,48,48,.35);
+}
+.trash-zone.visible{transform:translateY(0);}
+.trash-zone.over{background:rgba(120,20,20,0.97);transform:translateY(0) scale(1.03);}
+.trash-icon{font-size:28px;line-height:1;}
 </style>
 </head>
 <body>
@@ -180,30 +198,36 @@ input.sticky-val:focus{outline:none;}
   <div class="board" id="board"></div>
 </div>
 
+<!-- 모바일 휴지통 -->
+<div class="trash-zone" id="trashZone">
+  <span class="trash-icon">🗑️</span>
+  <span>여기에 놓으면 삭제</span>
+</div>
+
 <script>
 // ==================== 설정 ====================
 const API_URL = 'https://weekly-planner-api.hcy8910.workers.dev';
 const TASKS_DB = 'bb9c3bec5ce647e1a7f9d9ae44c19b2a';
 const META_DB  = '46c39b8ac867466ca74f642e855667d2';
+
+// 터치 기기 여부
+const isTouchDevice = () => window.matchMedia('(pointer: coarse)').matches;
+
 // ==================== 날짜 자동 계산 ====================
 function getWeekInfo(){
   const today=new Date();
-  const dow=today.getDay(); // 0=일,1=월,...,6=토
+  const dow=today.getDay();
   const diffToMon=dow===0?-6:1-dow;
   const mon=new Date(today);
   mon.setDate(today.getDate()+diffToMon);
-
-  // WEEK_KEY: ISO 주차 (예: 2026-W21)
   const jan4=new Date(mon.getFullYear(),0,4);
   const startOfWeek1=new Date(jan4);
   startOfWeek1.setDate(jan4.getDate()-(jan4.getDay()||7)+1);
   const weekNum=Math.round((mon-startOfWeek1)/(7*86400000))+1;
   const wk=`${mon.getFullYear()}-W${String(weekNum).padStart(2,'0')}`;
-
   const KEYS=['mon','tue','wed','thu','fri','sat','sun'];
   const DAY_LABELS=['월','화','수','목','금','토','일'];
   const todayKey=KEYS[dow===0?6:dow-1];
-
   const days=KEYS.map((key,i)=>{
     const d=new Date(mon);
     d.setDate(mon.getDate()+i);
@@ -211,11 +235,9 @@ function getWeekInfo(){
     const type=key===todayKey?'today':(i>=5?'weekend':'weekday');
     return{key,label,type,date:d};
   });
-
   const sun=days[6].date;
   const fmt=d=>`${d.getFullYear()}년 ${d.getMonth()+1}월 ${d.getDate()}일`;
   const rangeText=`${fmt(mon)}(월) — ${mon.getMonth()===sun.getMonth()?`${sun.getMonth()+1}월 ${sun.getDate()}일`:fmt(sun)}(일)`;
-
   return{wk,days,rangeText};
 }
 
@@ -232,7 +254,7 @@ const DAY_KEYS=DAYS.map(d=>d.key);
 let state=loadLocal()||initState();
 let dragId=null;
 let idCounter=state.tasks.length?Math.max(...state.tasks.map(t=>t.id))+1:1;
-let notionMetaPageId=null; // Notion 메타 페이지 ID (업데이트용)
+let notionMetaPageId=null;
 
 function initState(){
   const notes={},events={};
@@ -246,7 +268,6 @@ function loadLocal(){try{const d=localStorage.getItem('planner_'+WEEK_KEY);retur
 async function loadFromNotion(){
   setSyncStatus('불러오는 중...');
   try{
-    // 할일 로드
     const res=await fetch(`${API_URL}/tasks?db_id=${TASKS_DB}`);
     const data=await res.json();
     if(data.results){
@@ -257,7 +278,7 @@ async function loadFromNotion(){
           return wk===WEEK_KEY;
         })
         .map(p=>({
-          id: p.id, // Notion page ID 사용
+          id: p.id,
           notionId: p.id,
           col: p.properties['요일']?.select?.name||'unassigned',
           cat: notionCatToKey(p.properties['카테고리']?.select?.name||''),
@@ -269,8 +290,6 @@ async function loadFromNotion(){
         idCounter=Date.now();
       }
     }
-
-    // 메타 로드
     const mres=await fetch(`${API_URL}/meta?db_id=${META_DB}`);
     const mdata=await mres.json();
     if(mdata.results){
@@ -287,7 +306,6 @@ async function loadFromNotion(){
         });
       }
     }
-
     saveLocal();
     setSyncStatus('✅ 동기화 완료');
     renderAll();
@@ -300,11 +318,9 @@ async function loadFromNotion(){
 async function syncToNotion(){
   setSyncStatus('저장 중...');
   try{
-    // 할일 저장 - 새 항목만 추가, 기존 항목은 업데이트
     for(const task of state.tasks){
       const catLabel=CATS.find(c=>c.key===task.cat)?.label||'🗂️ 기타';
       if(task.notionId){
-        // 기존 항목 업데이트
         await fetch(`${API_URL}/tasks/${task.notionId}`,{
           method:'PATCH',
           headers:{'Content-Type':'application/json'},
@@ -317,7 +333,6 @@ async function syncToNotion(){
           }})
         });
       } else {
-        // 새 항목 추가
         const res=await fetch(`${API_URL}/tasks`,{
           method:'POST',
           headers:{'Content-Type':'application/json'},
@@ -336,8 +351,6 @@ async function syncToNotion(){
         if(saved.id) task.notionId=saved.id;
       }
     }
-
-    // 메타 저장
     const metaProps={
       '주차':{title:[{text:{content:WEEK_KEY}}]},
       '원씽':{rich_text:[{text:{content:state.weekOnething||''}}]},
@@ -346,7 +359,6 @@ async function syncToNotion(){
       metaProps[k+'_note']={rich_text:[{text:{content:state.notes[k]||''}}]};
       metaProps[k+'_event']={rich_text:[{text:{content:state.events[k]||''}}]};
     });
-
     if(notionMetaPageId){
       await fetch(`${API_URL}/meta/${notionMetaPageId}`,{
         method:'PATCH',
@@ -362,7 +374,6 @@ async function syncToNotion(){
       const saved=await res.json();
       if(saved.id) notionMetaPageId=saved.id;
     }
-
     saveLocal();
     setSyncStatus('✅ Notion 저장 완료!');
     setTimeout(()=>setSyncStatus(''),3000);
@@ -388,7 +399,6 @@ function updateStickyOnethingFromBar(){
   if(val){el.classList.remove('empty');}
   else{el.classList.add('empty');}
 }
-
 function updateStickyOnething(){
   const val=state.weekOnething||'';
   const el=document.getElementById('stickyVal');
@@ -396,7 +406,6 @@ function updateStickyOnething(){
   if(val){el.classList.remove('empty');}
   else{el.classList.add('empty');}
 }
-
 function renderAll(){
   updateStickyOnething();
   renderTopTodo();
@@ -433,9 +442,10 @@ function renderTopTodo(){
       chk.onclick=()=>{task.done=!task.done;saveLocal();renderTopTodo();renderBoard();};
       card.appendChild(nameEl);
       card.appendChild(chk);
-      card.addEventListener('dragstart',e=>{dragId=task.id;card.classList.add('dragging');e.dataTransfer.effectAllowed='move';e.dataTransfer.setData('text/plain',String(task.id));});
-      card.addEventListener('dragend',()=>{dragId=null;card.classList.remove('dragging');});
-      card.addEventListener('contextmenu',e=>showCtxMenu(e,task));
+      card.addEventListener('dragstart',e=>{dragId=task.id;card.classList.add('dragging');e.dataTransfer.effectAllowed='move';e.dataTransfer.setData('text/plain',String(task.id));showTrashZone();});
+      card.addEventListener('dragend',()=>{dragId=null;card.classList.remove('dragging');hideTrashZone();});
+      if(!isTouchDevice()) card.addEventListener('contextmenu',e=>showCtxMenu(e,task));
+      attachTouchDrag(card, task);
       group.appendChild(card);
     });
     const addBtn=document.createElement('button');
@@ -523,7 +533,134 @@ function renderBoard(){
   });
 }
 
-// ==================== 컨텍스트 메뉴 ====================
+// ==================== 휴지통 (모바일) ====================
+const trashZone=document.getElementById('trashZone');
+
+function showTrashZone(){
+  if(isTouchDevice()) trashZone.classList.add('visible');
+}
+function hideTrashZone(){
+  trashZone.classList.remove('visible','over');
+}
+
+// 마우스 드래그용 휴지통 이벤트 (PC는 사용 안 함 - 우클릭 삭제 유지)
+trashZone.addEventListener('dragover',e=>{
+  if(!isTouchDevice()) return;
+  e.preventDefault();
+  trashZone.classList.add('over');
+});
+trashZone.addEventListener('dragleave',()=>{
+  trashZone.classList.remove('over');
+});
+trashZone.addEventListener('drop',e=>{
+  if(!isTouchDevice()) return;
+  e.preventDefault();
+  hideTrashZone();
+  if(dragId!==null) deleteTask(dragId);
+});
+
+// ==================== 터치 드래그 삭제 (모바일) ====================
+let touchDragTask=null;
+let touchClone=null;
+let touchStartX=0, touchStartY=0;
+let touchMoved=false;
+
+function attachTouchDrag(card, task){
+  if(!('ontouchstart' in window)) return;
+
+  let longPressTimer=null;
+  let isDragging=false;
+
+  card.addEventListener('touchstart',e=>{
+    touchStartX=e.touches[0].clientX;
+    touchStartY=e.touches[0].clientY;
+    touchMoved=false;
+    isDragging=false;
+
+    longPressTimer=setTimeout(()=>{
+      isDragging=true;
+      touchDragTask=task;
+      // 클론 생성
+      touchClone=card.cloneNode(true);
+      touchClone.style.cssText=`
+        position:fixed;z-index:8000;opacity:0.85;pointer-events:none;
+        width:${card.offsetWidth}px;
+        left:${touchStartX - card.offsetWidth/2}px;
+        top:${touchStartY - card.offsetHeight/2}px;
+        box-shadow:0 8px 24px rgba(0,0,0,.25);
+        transform:scale(1.05);
+      `;
+      document.body.appendChild(touchClone);
+      card.style.opacity='0.3';
+      showTrashZone();
+      // 진동 피드백
+      if(navigator.vibrate) navigator.vibrate(40);
+    }, 500);
+  },{ passive:true });
+
+  card.addEventListener('touchmove',e=>{
+    const dx=Math.abs(e.touches[0].clientX - touchStartX);
+    const dy=Math.abs(e.touches[0].clientY - touchStartY);
+    if(dx>8||dy>8) touchMoved=true;
+
+    if(!isDragging){
+      if(touchMoved) clearTimeout(longPressTimer);
+      return;
+    }
+    e.preventDefault();
+    const tx=e.touches[0].clientX;
+    const ty=e.touches[0].clientY;
+    if(touchClone){
+      touchClone.style.left=(tx - touchClone.offsetWidth/2)+'px';
+      touchClone.style.top=(ty - touchClone.offsetHeight/2)+'px';
+    }
+    // 휴지통 위에 있는지 체크
+    const trashRect=trashZone.getBoundingClientRect();
+    if(ty > trashRect.top){
+      trashZone.classList.add('over');
+    } else {
+      trashZone.classList.remove('over');
+    }
+  },{ passive:false });
+
+  card.addEventListener('touchend',e=>{
+    clearTimeout(longPressTimer);
+    if(!isDragging){ card.style.opacity=''; return; }
+    isDragging=false;
+    if(touchClone){ touchClone.remove(); touchClone=null; }
+    card.style.opacity='';
+
+    const ty=e.changedTouches[0].clientY;
+    const trashRect=trashZone.getBoundingClientRect();
+    hideTrashZone();
+
+    if(ty > trashRect.top && touchDragTask){
+      deleteTask(touchDragTask.id);
+    }
+    touchDragTask=null;
+  });
+
+  card.addEventListener('touchcancel',()=>{
+    clearTimeout(longPressTimer);
+    if(touchClone){ touchClone.remove(); touchClone=null; }
+    card.style.opacity='';
+    hideTrashZone();
+    touchDragTask=null;
+  });
+}
+
+async function deleteTask(taskId){
+  const task=state.tasks.find(t=>t.id===taskId);
+  if(!task) return;
+  if(task.notionId){
+    try{ await fetch(`${API_URL}/tasks/${task.notionId}`,{method:'DELETE'}); }
+    catch(e){ console.warn('Notion 삭제 실패',e); }
+  }
+  state.tasks=state.tasks.filter(t=>t.id!==taskId);
+  saveLocal(); renderTopTodo(); renderBoard();
+}
+
+// ==================== 컨텍스트 메뉴 (PC 우클릭) ====================
 let ctxMenu=null;
 function removeCtxMenu(){if(ctxMenu){ctxMenu.remove();ctxMenu=null;}}
 document.addEventListener('click',removeCtxMenu);
@@ -537,27 +674,17 @@ function showCtxMenu(e,task){
   menu.className='ctx-menu';
   menu.style.left=e.clientX+'px';
   menu.style.top=e.clientY+'px';
-
   const delItem=document.createElement('div');
   delItem.className='ctx-menu-item danger';
   delItem.innerHTML='🗑️ 삭제';
   delItem.onclick=async()=>{
     removeCtxMenu();
     if(!confirm(`"${task.name}" 을(를) 삭제할까요?`))return;
-    // Notion에서도 삭제
-    if(task.notionId){
-      try{
-        await fetch(`${API_URL}/tasks/${task.notionId}`,{method:'DELETE'});
-      }catch(e){console.warn('Notion 삭제 실패',e);}
-    }
-    state.tasks=state.tasks.filter(t=>t.id!==task.id);
-    saveLocal();renderTopTodo();renderBoard();
+    deleteTask(task.id);
   };
   menu.appendChild(delItem);
   document.body.appendChild(menu);
   ctxMenu=menu;
-
-  // 화면 밖으로 나가면 위치 조정
   const rect=menu.getBoundingClientRect();
   if(rect.right>window.innerWidth)menu.style.left=(e.clientX-rect.width)+'px';
   if(rect.bottom>window.innerHeight)menu.style.top=(e.clientY-rect.height)+'px';
@@ -580,12 +707,14 @@ function makeCard(task){
   chk.onclick=()=>{task.done=!task.done;saveLocal();renderBoard();renderTopTodo();};
   card.appendChild(nameEl);
   card.appendChild(chk);
-  card.addEventListener('dragstart',e=>{dragId=task.id;card.classList.add('dragging');e.dataTransfer.effectAllowed='move';e.dataTransfer.setData('text/plain',String(task.id));});
-  card.addEventListener('dragend',()=>{dragId=null;card.classList.remove('dragging');});
-  card.addEventListener('contextmenu',e=>showCtxMenu(e,task));
+  card.addEventListener('dragstart',e=>{dragId=task.id;card.classList.add('dragging');e.dataTransfer.effectAllowed='move';e.dataTransfer.setData('text/plain',String(task.id));showTrashZone();});
+  card.addEventListener('dragend',()=>{dragId=null;card.classList.remove('dragging');hideTrashZone();});
+  if(!isTouchDevice()) card.addEventListener('contextmenu',e=>showCtxMenu(e,task));
+  attachTouchDrag(card, task);
   return card;
 }
 
+// ==================== 할일 추가 ====================
 function showInlineInput(group,colKey,catKey,addBtn){
   if(group.querySelector('.add-input'))return;
   addBtn.style.display='none';
@@ -608,30 +737,26 @@ function showInlineInput(group,colKey,catKey,addBtn){
     if(e.key==='Enter'){e.preventDefault();commitInput();}
     if(e.key==='Escape'){committed=true;renderTopTodo();renderBoard();}
   });
-  // 스마트폰: 키보드 내리거나 다른 곳 탭하면 자동 저장
   inp.addEventListener('blur',()=>setTimeout(commitInput,150));
   group.insertBefore(inp,addBtn);
   setTimeout(()=>inp.focus(),30);
 }
 
+// ==================== 새 주차 ====================
 async function resetWeek(){
   if(!confirm('새 주차를 시작합니다.\n현재 데이터는 Notion에 저장되어 있습니다.\n계속할까요?'))return;
-
-  // 전주 미완료 항목 Notion에서 불러오기
   setSyncStatus('전주 데이터 확인 중...');
   let prevTasks=[];
   try{
     const res=await fetch(`${API_URL}/tasks?db_id=${TASKS_DB}`);
     const data=await res.json();
     if(data.results){
-      // 전주 WEEK_KEY 계산
       const prevMon=new Date(DAYS[0].date);
       prevMon.setDate(prevMon.getDate()-7);
       const jan4=new Date(prevMon.getFullYear(),0,4);
       const s=new Date(jan4);s.setDate(jan4.getDate()-(jan4.getDay()||7)+1);
       const prevWkNum=Math.round((prevMon-s)/(7*86400000))+1;
       const prevWkKey=`${prevMon.getFullYear()}-W${String(prevWkNum).padStart(2,'0')}`;
-
       prevTasks=data.results
         .filter(p=>!p.archived)
         .filter(p=>(p.properties['주차']?.rich_text?.[0]?.plain_text||'')===prevWkKey)
@@ -646,7 +771,6 @@ async function resetWeek(){
         .filter(p=>p.name);
     }
   }catch(e){console.warn('전주 데이터 로드 실패',e);}
-
   setSyncStatus('');
   showCarryOverModal(prevTasks);
 }
@@ -654,7 +778,6 @@ async function resetWeek(){
 function showCarryOverModal(prevTasks){
   const overlay=document.createElement('div');
   overlay.className='modal-overlay';
-
   const modal=document.createElement('div');
   modal.className='modal';
   modal.innerHTML=`
@@ -667,22 +790,18 @@ function showCarryOverModal(prevTasks){
       <button class="btn btn-sync" id="carryConfirm">선택 항목 가져오기</button>
     </div>
   `;
-
   const list=modal.querySelector('#carryList');
   const catLabel=k=>CATS.find(c=>c.key===k)?.label||k;
   const dayLabel=k=>DAYS.find(d=>d.key===k)?.label||k;
-
   if(prevTasks.length===0){
     list.innerHTML='<div class="modal-empty">전주 미완료 항목이 없어요 🎉</div>';
   } else {
-    // 전체선택 체크박스
     const allWrap=document.createElement('div');
     allWrap.style.cssText='display:flex;align-items:center;gap:8px;padding:4px 10px 8px;border-bottom:1px solid var(--border);margin-bottom:4px;';
     const allChk=document.createElement('input');allChk.type='checkbox';allChk.id='allChk';
     const allLbl=document.createElement('label');allLbl.htmlFor='allChk';allLbl.style.cssText='font-size:11px;font-weight:600;cursor:pointer;color:var(--text-secondary);';allLbl.textContent='전체 선택';
     allWrap.appendChild(allChk);allWrap.appendChild(allLbl);
     list.appendChild(allWrap);
-
     prevTasks.forEach((task,i)=>{
       const item=document.createElement('div');
       item.className='modal-item';
@@ -694,20 +813,12 @@ function showCarryOverModal(prevTasks){
       item.onclick=e=>{if(e.target!==chk)chk.checked=!chk.checked;};
       list.appendChild(item);
     });
-
     allChk.onchange=()=>{list.querySelectorAll('input[data-idx]').forEach(c=>c.checked=allChk.checked);};
   }
-
   overlay.appendChild(modal);
   document.body.appendChild(overlay);
-
   modal.querySelector('#carryCancel').onclick=()=>overlay.remove();
-
-  modal.querySelector('#carryReset').onclick=()=>{
-    overlay.remove();
-    doResetWeek([]);
-  };
-
+  modal.querySelector('#carryReset').onclick=()=>{overlay.remove();doResetWeek([]);};
   modal.querySelector('#carryConfirm').onclick=()=>{
     const selected=[];
     list.querySelectorAll('input[data-idx]').forEach(c=>{
@@ -722,7 +833,6 @@ function doResetWeek(carryTasks){
   localStorage.removeItem('planner_'+WEEK_KEY);
   state=initState();
   notionMetaPageId=null;
-  // 가져온 항목 추가 (notionId 제거해서 새 항목으로 저장되도록)
   carryTasks.forEach(t=>{
     state.tasks.push({id:Date.now()+Math.random(),col:t.col,cat:t.cat,name:t.name,done:false});
   });
@@ -735,7 +845,6 @@ function doResetWeek(carryTasks){
 function exportData(){
   let text='=== 일상부자 주간 플래너 ===\n';
   if(state.weekOnething)text+=`⭐ 이번주 원씽: ${state.weekOnething}\n`;
-
   text+='\n[이번주 할일]\n';
   CATS.forEach(cat=>{
     const tasks=state.tasks.filter(t=>t.col==='unassigned'&&t.cat===cat.key);
@@ -759,7 +868,7 @@ function exportData(){
 
 // ==================== 시작 ====================
 document.getElementById('weekRange').textContent=WEEK_RANGE_TEXT;
-loadFromNotion(); // Notion에서 데이터 불러오기
+loadFromNotion();
 </script>
 </body>
 </html>
