@@ -591,17 +591,25 @@ function showInlineInput(group,colKey,catKey,addBtn){
   addBtn.style.display='none';
   const inp=document.createElement('input');
   inp.className='add-input';
-  inp.placeholder='입력 후 Enter / Esc 취소';
+  inp.placeholder='입력 후 확인 / Esc 취소';
   let committed=false;
-  inp.addEventListener('keydown',e=>{
-    if(e.key==='Enter'&&inp.value.trim()){
-      committed=true;
+
+  function commitInput(){
+    if(committed)return;
+    committed=true;
+    if(inp.value.trim()){
       state.tasks.push({id:Date.now(),col:colKey,cat:catKey,name:inp.value.trim(),done:false});
-      saveLocal();renderTopTodo();renderBoard();
+      saveLocal();
     }
+    renderTopTodo();renderBoard();
+  }
+
+  inp.addEventListener('keydown',e=>{
+    if(e.key==='Enter'){e.preventDefault();commitInput();}
     if(e.key==='Escape'){committed=true;renderTopTodo();renderBoard();}
   });
-  inp.addEventListener('blur',()=>{if(!committed)setTimeout(()=>{renderTopTodo();renderBoard();},200);});
+  // 스마트폰: 키보드 내리거나 다른 곳 탭하면 자동 저장
+  inp.addEventListener('blur',()=>setTimeout(commitInput,150));
   group.insertBefore(inp,addBtn);
   setTimeout(()=>inp.focus(),30);
 }
