@@ -237,13 +237,28 @@ let state=loadLocal()||initState();
 let dragId=null;
 let idCounter=state.tasks.length?Math.max(...state.tasks.map(t=>t.id))+1:1;
 let notionMetaPageId=null;
+let hasUnsavedChanges=false;
+let autoSaveTimer=null;
 
 function initState(){
   const notes={},events={};
   DAY_KEYS.forEach(k=>{notes[k]='';events[k]='';});
   return{weekOnething:'',tasks:[],notes,events,week:WEEK_KEY};
 }
-function saveLocal(){try{localStorage.setItem('planner_'+WEEK_KEY,JSON.stringify(state));}catch(e){}}
+function saveLocal(){
+  try{localStorage.setItem('planner_'+WEEK_KEY,JSON.stringify(state));}catch(e){}
+  hasUnsavedChanges=true;
+  scheduleAutoSave();
+}
+function scheduleAutoSave(){
+  if(autoSaveTimer)clearTimeout(autoSaveTimer);
+  autoSaveTimer=setTimeout(async()=>{
+    if(hasUnsavedChanges){
+      await syncToNotion();
+      hasUnsavedChanges=false;
+    }
+  },30000); // 30초
+}
 function loadLocal(){try{const d=localStorage.getItem('planner_'+WEEK_KEY);return d?JSON.parse(d):null;}catch(e){return null;}}
 
 // ==================== Notion 동기화 ====================
@@ -361,7 +376,9 @@ async function syncToNotion(){
       if(saved.id) notionMetaPageId=saved.id;
     }
 
-    saveLocal();
+    // saveLocal 호출 없이 직접 localStorage만 저장
+    try{localStorage.setItem('planner_'+WEEK_KEY,JSON.stringify(state));}catch(e){}
+    hasUnsavedChanges=false;
     setSyncStatus('✅ Notion 저장 완료!');
     setTimeout(()=>setSyncStatus(''),3000);
   }catch(e){
