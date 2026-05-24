@@ -159,6 +159,7 @@ input.sticky-val:focus{outline:none;}
     <div class="week-range" id="weekRange">불러오는 중...</div>
   </div>
   <div class="header-btns">
+    <button class="btn" id="prevWeekBtn" style="display:none;" onclick="openPrevWeek()">📅 지난주 보기</button>
     <button class="btn btn-sync" onclick="syncToNotion()">☁️ Notion 저장</button>
     <button class="btn" onclick="exportData()">📋 내용 복사</button>
     <button class="btn btn-reset" onclick="resetWeek()">🔄 새 주차 시작</button>
@@ -243,6 +244,85 @@ function getWeekInfoFromDate(baseDate){
 // ==================== 주차 정보 ====================
 const WEEK_INFO = getWeekInfoFromDate(new Date());
 const WEEK_KEY = WEEK_INFO.wk;
+
+// 지난주 키 계산
+function getPrevWeekKey(){
+  const prevMon = new Date(WEEK_INFO.mon);
+  prevMon.setDate(prevMon.getDate() - 7);
+  const jan4 = new Date(prevMon.getFullYear(), 0, 4);
+  const s = new Date(jan4); s.setDate(jan4.getDate() - (jan4.getDay() || 7) + 1);
+  const prevWkNum = Math.round((prevMon - s) / (7 * 86400000)) + 1;
+  return `${prevMon.getFullYear()}-W${String(prevWkNum).padStart(2, '0')}`;
+}
+
+// 지난주 날짜 범위 텍스트
+function getPrevWeekRangeText(){
+  const prevMon = new Date(WEEK_INFO.mon);
+  prevMon.setDate(prevMon.getDate() - 7);
+  const prevSun = new Date(prevMon);
+  prevSun.setDate(prevMon.getDate() + 6);
+  const fmt = d => `${d.getMonth()+1}/${d.getDate()}`;
+  return `${fmt(prevMon)}~${fmt(prevSun)}`;
+}
+
+function openPrevWeek(){
+  const prevKey = getPrevWeekKey();
+  window.open(location.pathname + '?week=' + prevKey, '_blank');
+}
+
+// URL 파라미터로 특정 주차 읽기전용 모드 처리
+function checkReadonlyMode(){
+  const params = new URLSearchParams(location.search);
+  const weekParam = params.get('week');
+  if(!weekParam) return false;
+
+  // 읽기전용 모드 - 해당 주차 데이터 불러와서 표시
+  document.querySelector('.header-btns').innerHTML = `
+    <span style="font-size:12px;color:var(--text-secondary);padding:5px 8px;">📋 ${weekParam} 읽기전용</span>
+    <button class="btn" onclick="window.close()">✕ 닫기</button>
+  `;
+  document.getElementById('stickyBar').style.pointerEvents = 'none';
+  loadWeekReadonly(weekParam);
+  return true;
+}
+
+async function loadWeekReadonly(weekKey){
+  setSyncStatus('불러오는 중...');
+  state = initState();
+  try{
+    const res = await fetch(`${API_URL}/tasks?db_id=${TASKS_DB}&week=${weekKey}`);
+    const data = await res.json();
+    if(data.results){
+      const tasks = data.results.filter(p => !p.archived).map(p => ({
+        id: p.id, notionId: p.id,
+        col: p.properties['요일']?.select?.name || 'unassigned',
+        cat: notionCatToKey(p.properties['카테고리']?.select?.name || ''),
+        name: p.properties['할일']?.title?.[0]?.plain_text || '',
+        done: p.properties['완료']?.checkbox || false,
+      }));
+      if(tasks.length > 0) state.tasks = tasks;
+    }
+    const mres = await fetch(`${API_URL}/meta?db_id=${META_DB}&week=${weekKey}`);
+    const mdata = await mres.json();
+    if(mdata.results?.[0]){
+      const props = mdata.results[0].properties;
+      state.weekOnething = props['원씽']?.rich_text?.[0]?.plain_text || '';
+      getDayKeys().forEach(k => {
+        state.notes[k] = props[k+'_note']?.rich_text?.[0]?.plain_text || '';
+        state.events[k] = props[k+'_event']?.rich_text?.[0]?.plain_text || '';
+      });
+    }
+
+    // 헤더 날짜를 해당 주차로 표시
+    const wInfo = getWeekInfoFromDate(new Date(WEEK_INFO.mon.getFullYear(), 0, 4));
+    document.getElementById('weekRange').textContent = weekKey + ' 주차 기록';
+    setSyncStatus('');
+    renderAll();
+  } catch(e){
+    setSyncStatus('⚠️ 불러오기 실패');
+    renderAll();
+  }
+}
 
 function getDays(){ return WEEK_INFO.days; }
 function getWeekKey(){ return WEEK_KEY; }
@@ -850,7 +930,12 @@ function exportData(){
 
 // ==================== 시작 ====================
 document.getElementById('weekRange').textContent = WEEK_INFO.rangeText;
-loadFromNotion().then(() => checkWeekChange());
+if(!checkReadonlyMode()){
+  const btn = document.getElementById('prevWeekBtn');
+  btn.textContent = `📅 지난주 보기 (${getPrevWeekRangeText()})`;
+  btn.style.display = '';
+  loadFromNotion().then(() => checkWeekChange());
+}
 </script>
 </body>
 </html>
