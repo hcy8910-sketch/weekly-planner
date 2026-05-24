@@ -291,7 +291,6 @@ function loadLocal(){
 
 // ==================== Notion 동기화 ====================
 async function loadFromNotion(){
-  updateWeekNav();
   setSyncStatus('불러오는 중...');
   state = loadLocal() || initState();
 
