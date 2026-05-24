@@ -40,6 +40,16 @@ body{font-family:'Noto Sans KR',sans-serif;background:var(--bg);color:var(--text
 .btn-sync{background:#E6F1FB;border-color:#378ADD;color:#0C447C;}
 .btn-sync:hover{background:#CCE4F7;}
 .sync-status{font-size:11px;color:var(--text-tertiary);padding:5px 8px;align-self:center;}
+
+/* ===== 과거주차 배너 ===== */
+.past-week-banner{
+  background:#FFF8E7;border:1px solid #EF9F27;border-radius:var(--radius-sm);
+  padding:7px 14px;margin-bottom:10px;display:none;
+  align-items:center;gap:8px;font-size:12px;color:#633806;
+}
+.past-week-banner.show{display:flex;}
+.past-week-banner strong{font-weight:700;}
+
 .sticky-bar{position:sticky;top:0;z-index:100;background:#FFFBF2;border:1px solid var(--invest-border);border-radius:var(--radius-sm);padding:8px 14px;margin-bottom:14px;display:flex;align-items:center;gap:10px;box-shadow:0 2px 8px rgba(0,0,0,.07);width:calc(168px * 7 + 10px * 6);}
 .sticky-label{font-size:11px;font-weight:700;color:#854F0B;white-space:nowrap;}
 .sticky-val{font-size:13px;font-weight:600;color:#633806;flex:1;}
@@ -48,6 +58,17 @@ body{font-family:'Noto Sans KR',sans-serif;background:var(--bg);color:var(--text
 @media(max-width:700px){.top-section{grid-template-columns:1fr;}.sticky-bar{width:100%;}.board{min-width:unset;flex-wrap:nowrap;overflow-x:auto;}}
 .section-box{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);overflow:hidden;}
 .section-box-title{background:var(--surface2);font-size:11px;font-weight:700;color:var(--text-secondary);padding:7px 12px;border-bottom:1px solid var(--border);letter-spacing:.03em;}
+
+/* ===== 주차 네비게이션 ===== */
+.week-nav{display:flex;align-items:center;justify-content:space-between;padding:7px 10px;border-bottom:1px solid var(--border);background:var(--surface2);}
+.week-nav-btn{width:26px;height:26px;border-radius:4px;border:1px solid var(--border2);background:var(--surface);color:var(--text-secondary);font-size:13px;cursor:pointer;display:flex;align-items:center;justify-content:center;padding:0;font-family:inherit;transition:all .12s;flex-shrink:0;}
+.week-nav-btn:hover{background:var(--today);border-color:var(--today-border);color:var(--today-text);}
+.week-nav-center{display:flex;flex-direction:column;align-items:center;gap:2px;flex:1;min-width:0;}
+.week-nav-key{font-size:11px;font-weight:700;color:var(--text-primary);}
+.week-nav-today-btn{font-size:10px;padding:2px 7px;border-radius:3px;border:1px solid var(--today-border);background:var(--today);color:var(--today-text);cursor:pointer;font-family:inherit;transition:all .12s;white-space:nowrap;}
+.week-nav-today-btn:hover{background:var(--today-border);color:#fff;}
+.week-nav-today-btn.current{background:var(--today-border);color:#fff;cursor:default;}
+
 .onething-input{width:100%;border:none;outline:none;padding:10px 12px;font-size:13px;font-weight:500;font-family:'Noto Sans KR',sans-serif;background:transparent;color:var(--text-primary);}
 .onething-input::placeholder{color:var(--text-tertiary);font-weight:400;}
 .onething-input:focus{background:#FFFBF2;}
@@ -153,6 +174,11 @@ input.sticky-val:focus{outline:none;}
   </div>
 </div>
 
+<!-- 과거/미래 주차 열람 배너 -->
+<div class="past-week-banner" id="pastWeekBanner">
+  <span>👁️ <strong id="bannerWeekKey"></strong> 주차를 보고 있어요. 수정사항은 자동 저장됩니다.</span>
+</div>
+
 <div class="sticky-bar" id="stickyBar">
   <span class="sticky-label">⭐ 이번주 원씽</span>
   <input class="sticky-val empty" id="stickyVal" placeholder="아직 입력하지 않았어요" oninput="updateStickyOnethingFromBar()">
@@ -161,6 +187,15 @@ input.sticky-val:focus{outline:none;}
 <div class="top-section">
   <div class="section-box">
     <div class="section-box-title">📅 월간계획</div>
+    <!-- 주차 네비게이션 -->
+    <div class="week-nav">
+      <button class="week-nav-btn" onclick="moveWeek(-1)" title="이전 주">◀</button>
+      <div class="week-nav-center">
+        <span class="week-nav-key" id="navWeekKey">-</span>
+        <button class="week-nav-today-btn" id="todayBtn" onclick="goToThisWeek()">현재주</button>
+      </div>
+      <button class="week-nav-btn" onclick="moveWeek(1)" title="다음 주">▶</button>
+    </div>
     <a href="https://www.notion.so/2026-351d71b6b600818e834bc5c008c4e1b5" target="_blank" class="monthly-plan-link">
       <span class="monthly-plan-icon">📋</span>
       <span class="monthly-plan-text">2026 월간계획</span>
@@ -190,125 +225,215 @@ input.sticky-val:focus{outline:none;}
 const API_URL = 'https://weekly-planner-api.hcy8910.workers.dev';
 const TASKS_DB = 'bb9c3bec5ce647e1a7f9d9ae44c19b2a';
 const META_DB  = '46c39b8ac867466ca74f642e855667d2';
-// ==================== 날짜 자동 계산 ====================
-function getWeekInfo(){
-  const today=new Date();
-  const dow=today.getDay();
-  const diffToMon=dow===0?-6:1-dow;
-  const mon=new Date(today);
-  mon.setDate(today.getDate()+diffToMon);
 
-  const jan4=new Date(mon.getFullYear(),0,4);
-  const startOfWeek1=new Date(jan4);
-  startOfWeek1.setDate(jan4.getDate()-(jan4.getDay()||7)+1);
-  const weekNum=Math.round((mon-startOfWeek1)/(7*86400000))+1;
-  const wk=`${mon.getFullYear()}-W${String(weekNum).padStart(2,'0')}`;
+// ==================== 날짜 계산 유틸 ====================
+function getWeekInfoFromDate(baseDate){
+  const today = baseDate || new Date();
+  const dow = today.getDay();
+  const diffToMon = dow === 0 ? -6 : 1 - dow;
+  const mon = new Date(today);
+  mon.setDate(today.getDate() + diffToMon);
 
-  const KEYS=['mon','tue','wed','thu','fri','sat','sun'];
-  const DAY_LABELS=['월','화','수','목','금','토','일'];
-  const todayKey=KEYS[dow===0?6:dow-1];
+  const jan4 = new Date(mon.getFullYear(), 0, 4);
+  const startOfWeek1 = new Date(jan4);
+  startOfWeek1.setDate(jan4.getDate() - (jan4.getDay() || 7) + 1);
+  const weekNum = Math.round((mon - startOfWeek1) / (7 * 86400000)) + 1;
+  const wk = `${mon.getFullYear()}-W${String(weekNum).padStart(2, '0')}`;
 
-  const days=KEYS.map((key,i)=>{
-    const d=new Date(mon);
-    d.setDate(mon.getDate()+i);
-    const label=`${DAY_LABELS[i]} ${d.getMonth()+1}/${d.getDate()}`;
-    const type=key===todayKey?'today':(i>=5?'weekend':'weekday');
-    return{key,label,type,date:d};
+  const KEYS = ['mon','tue','wed','thu','fri','sat','sun'];
+  const DAY_LABELS = ['월','화','수','목','금','토','일'];
+  const todayKey = KEYS[dow === 0 ? 6 : dow - 1];
+
+  const days = KEYS.map((key, i) => {
+    const d = new Date(mon);
+    d.setDate(mon.getDate() + i);
+    const label = `${DAY_LABELS[i]} ${d.getMonth()+1}/${d.getDate()}`;
+    const type = key === todayKey ? 'today' : (i >= 5 ? 'weekend' : 'weekday');
+    return { key, label, type, date: d };
   });
 
-  const sun=days[6].date;
-  const fmt=d=>`${d.getFullYear()}년 ${d.getMonth()+1}월 ${d.getDate()}일`;
-  const rangeText=`${fmt(mon)}(월) — ${mon.getMonth()===sun.getMonth()?`${sun.getMonth()+1}월 ${sun.getDate()}일`:fmt(sun)}(일)`;
+  const sun = days[6].date;
+  const fmt = d => `${d.getFullYear()}년 ${d.getMonth()+1}월 ${d.getDate()}일`;
+  const rangeText = `${fmt(mon)}(월) — ${mon.getMonth() === sun.getMonth() ? `${sun.getMonth()+1}월 ${sun.getDate()}일` : fmt(sun)}(일)`;
 
-  return{wk,days,rangeText};
+  return { wk, days, rangeText, mon };
 }
 
-const {wk:WEEK_KEY, days:DAYS, rangeText:WEEK_RANGE_TEXT}=getWeekInfo();
-const CATS=[
-  {key:'invest',label:'💰 투자공부',catClass:'cat-invest'},
-  {key:'read',  label:'📚 독서',   catClass:'cat-read'},
-  {key:'health',label:'🏃 건강·운동',catClass:'cat-health'},
-  {key:'etc',   label:'🗂️ 기타',  catClass:'cat-etc'},
-];
-const DAY_KEYS=DAYS.map(d=>d.key);
+// ==================== 주차 이동 ====================
+const TODAY_WEEK_INFO = getWeekInfoFromDate(new Date());
+const TODAY_WEEK_KEY = TODAY_WEEK_INFO.wk;
+
+// 현재 보고 있는 주차 기준 날짜 (월요일)
+let currentViewMonday = new Date(TODAY_WEEK_INFO.mon);
+
+function getCurrentViewInfo(){
+  return getWeekInfoFromDate(currentViewMonday);
+}
+
+function moveWeek(delta){
+  // 미저장 변경사항 있으면 먼저 저장
+  if(hasUnsavedChanges){
+    syncToNotion().then(()=> doMoveWeek(delta));
+  } else {
+    doMoveWeek(delta);
+  }
+}
+
+async function doMoveWeek(delta){
+  currentViewMonday = new Date(currentViewMonday);
+  currentViewMonday.setDate(currentViewMonday.getDate() + delta * 7);
+  notionMetaPageId = null;
+  await loadFromNotion();
+}
+
+function goToThisWeek(){
+  if(hasUnsavedChanges){
+    syncToNotion().then(()=> doGoToThisWeek());
+  } else {
+    doGoToThisWeek();
+  }
+}
+
+async function doGoToThisWeek(){
+  currentViewMonday = new Date(TODAY_WEEK_INFO.mon);
+  notionMetaPageId = null;
+  await loadFromNotion();
+}
+
+function isCurrentWeek(){
+  const info = getCurrentViewInfo();
+  return info.wk === TODAY_WEEK_KEY;
+}
+
+function updateWeekNav(){
+  const info = getCurrentViewInfo();
+  const navMon = info.days[0].date;
+  const navSun = info.days[6].date;
+  const navFmt = d => `${d.getMonth()+1}/${d.getDate()}`;
+  const DAY_KO2 = ['일','월','화','수','목','금','토'];
+  document.getElementById('navWeekKey').textContent = `${navFmt(navMon)}(${DAY_KO2[navMon.getDay()]}) ~ ${navFmt(navSun)}(${DAY_KO2[navSun.getDay()]})`;
+  document.getElementById('weekRange').textContent = info.rangeText;
+
+  const todayBtn = document.getElementById('todayBtn');
+  const banner = document.getElementById('pastWeekBanner');
+  const bannerKey = document.getElementById('bannerWeekKey');
+
+  if(isCurrentWeek()){
+    todayBtn.classList.add('current');
+    todayBtn.textContent = '현재주 ✓';
+    banner.classList.remove('show');
+  } else {
+    todayBtn.classList.remove('current');
+    todayBtn.textContent = '현재주';
+    const mon = info.days[0].date;
+    const sun = info.days[6].date;
+    const fmt = d => `${d.getMonth()+1}/${d.getDate()}`;
+    const DAY_KO = ['일','월','화','수','목','금','토'];
+    bannerKey.textContent = `${fmt(mon)}(${DAY_KO[mon.getDay()]}) ~ ${fmt(sun)}(${DAY_KO[sun.getDay()]})`;
+    banner.classList.add('show');
+  }
+}
 
 // ==================== 상태 ====================
-let state=loadLocal()||initState();
-let dragId=null;
-let idCounter=state.tasks.length?Math.max(...state.tasks.map(t=>t.id))+1:1;
-let notionMetaPageId=null;
-let hasUnsavedChanges=false;
-let autoSaveTimer=null;
+const CATS = [
+  {key:'invest', label:'💰 투자공부', catClass:'cat-invest'},
+  {key:'read',   label:'📚 독서',    catClass:'cat-read'},
+  {key:'health', label:'🏃 건강·운동', catClass:'cat-health'},
+  {key:'etc',    label:'🗂️ 기타',   catClass:'cat-etc'},
+];
+
+function getDays(){ return getCurrentViewInfo().days; }
+function getWeekKey(){ return getCurrentViewInfo().wk; }
+function getDayKeys(){ return getDays().map(d => d.key); }
+
+let state = null;
+let dragId = null;
+let idCounter = 1;
+let notionMetaPageId = null;
+let hasUnsavedChanges = false;
+let autoSaveTimer = null;
 
 function initState(){
-  const notes={},events={};
-  DAY_KEYS.forEach(k=>{notes[k]='';events[k]='';});
-  return{weekOnething:'',tasks:[],notes,events,week:WEEK_KEY};
+  const notes = {}, events = {};
+  ['mon','tue','wed','thu','fri','sat','sun'].forEach(k => { notes[k] = ''; events[k] = ''; });
+  return { weekOnething:'', tasks:[], notes, events, week: getWeekKey() };
 }
+
 function saveLocal(){
-  try{localStorage.setItem('planner_'+WEEK_KEY,JSON.stringify(state));}catch(e){}
-  hasUnsavedChanges=true;
+  try{ localStorage.setItem('planner_' + getWeekKey(), JSON.stringify(state)); } catch(e){}
+  hasUnsavedChanges = true;
   scheduleAutoSave();
 }
+
 function scheduleAutoSave(){
-  if(autoSaveTimer)clearTimeout(autoSaveTimer);
-  autoSaveTimer=setTimeout(async()=>{
+  if(autoSaveTimer) clearTimeout(autoSaveTimer);
+  autoSaveTimer = setTimeout(async () => {
     if(hasUnsavedChanges){
       await syncToNotion();
-      hasUnsavedChanges=false;
+      hasUnsavedChanges = false;
     }
-  },30000); // 30초
+  }, 30000);
 }
-function loadLocal(){try{const d=localStorage.getItem('planner_'+WEEK_KEY);return d?JSON.parse(d):null;}catch(e){return null;}}
+
+function loadLocal(){
+  try{ const d = localStorage.getItem('planner_' + getWeekKey()); return d ? JSON.parse(d) : null; } catch(e){ return null; }
+}
 
 // ==================== Notion 동기화 ====================
 async function loadFromNotion(){
+  updateWeekNav();
   setSyncStatus('불러오는 중...');
+  state = loadLocal() || initState();
+
   try{
-    const res=await fetch(`${API_URL}/tasks?db_id=${TASKS_DB}`);
-    const data=await res.json();
+    const WEEK_KEY = getWeekKey();
+    const res = await fetch(`${API_URL}/tasks?db_id=${TASKS_DB}`);
+    const data = await res.json();
     if(data.results){
-      const notionTasks=data.results
-        .filter(p=>!p.archived)
-        .filter(p=>{
-          const wk=p.properties['주차']?.rich_text?.[0]?.plain_text||'';
-          return wk===WEEK_KEY;
+      const notionTasks = data.results
+        .filter(p => !p.archived)
+        .filter(p => {
+          const wk = p.properties['주차']?.rich_text?.[0]?.plain_text || '';
+          return wk === WEEK_KEY;
         })
-        .map(p=>({
+        .map(p => ({
           id: p.id,
           notionId: p.id,
-          col: p.properties['요일']?.select?.name||'unassigned',
-          cat: notionCatToKey(p.properties['카테고리']?.select?.name||''),
-          name: p.properties['할일']?.title?.[0]?.plain_text||'',
-          done: p.properties['완료']?.checkbox||false,
+          col: p.properties['요일']?.select?.name || 'unassigned',
+          cat: notionCatToKey(p.properties['카테고리']?.select?.name || ''),
+          name: p.properties['할일']?.title?.[0]?.plain_text || '',
+          done: p.properties['완료']?.checkbox || false,
         }));
-      if(notionTasks.length>0){
-        state.tasks=notionTasks;
-        idCounter=Date.now();
+      if(notionTasks.length > 0){
+        state.tasks = notionTasks;
+        idCounter = Date.now();
       }
     }
 
-    const mres=await fetch(`${API_URL}/meta?db_id=${META_DB}`);
-    const mdata=await mres.json();
+    const mres = await fetch(`${API_URL}/meta?db_id=${META_DB}`);
+    const mdata = await mres.json();
     if(mdata.results){
-      const metaPage=mdata.results.find(p=>
-        (p.properties['주차']?.title?.[0]?.plain_text||'')=== WEEK_KEY
+      const WEEK_KEY = getWeekKey();
+      const metaPage = mdata.results.find(p =>
+        (p.properties['주차']?.title?.[0]?.plain_text || '') === WEEK_KEY
       );
       if(metaPage){
-        notionMetaPageId=metaPage.id;
-        const props=metaPage.properties;
-        state.weekOnething=props['원씽']?.rich_text?.[0]?.plain_text||'';
-        DAY_KEYS.forEach(k=>{
-          state.notes[k]=props[k+'_note']?.rich_text?.[0]?.plain_text||'';
-          state.events[k]=props[k+'_event']?.rich_text?.[0]?.plain_text||'';
+        notionMetaPageId = metaPage.id;
+        const props = metaPage.properties;
+        state.weekOnething = props['원씽']?.rich_text?.[0]?.plain_text || '';
+        getDayKeys().forEach(k => {
+          state.notes[k] = props[k+'_note']?.rich_text?.[0]?.plain_text || '';
+          state.events[k] = props[k+'_event']?.rich_text?.[0]?.plain_text || '';
         });
+      } else {
+        notionMetaPageId = null;
       }
     }
 
     saveLocal();
     setSyncStatus('✅ 동기화 완료');
     renderAll();
-  }catch(e){
+  } catch(e){
     setSyncStatus('⚠️ 불러오기 실패 (로컬 사용 중)');
     renderAll();
   }
@@ -316,14 +441,15 @@ async function loadFromNotion(){
 
 async function syncToNotion(){
   setSyncStatus('저장 중...');
+  const WEEK_KEY = getWeekKey();
   try{
     for(const task of state.tasks){
-      const catLabel=CATS.find(c=>c.key===task.cat)?.label||'🗂️ 기타';
+      const catLabel = CATS.find(c => c.key === task.cat)?.label || '🗂️ 기타';
       if(task.notionId){
-        await fetch(`${API_URL}/tasks/${task.notionId}`,{
+        await fetch(`${API_URL}/tasks/${task.notionId}`, {
           method:'PATCH',
           headers:{'Content-Type':'application/json'},
-          body:JSON.stringify({properties:{
+          body: JSON.stringify({properties:{
             '할일':{title:[{text:{content:task.name}}]},
             '카테고리':{select:{name:catLabel}},
             '요일':{select:{name:task.col}},
@@ -332,10 +458,10 @@ async function syncToNotion(){
           }})
         });
       } else {
-        const res=await fetch(`${API_URL}/tasks`,{
+        const res = await fetch(`${API_URL}/tasks`, {
           method:'POST',
           headers:{'Content-Type':'application/json'},
-          body:JSON.stringify({
+          body: JSON.stringify({
             parent:{database_id:TASKS_DB},
             properties:{
               '할일':{title:[{text:{content:task.name}}]},
@@ -346,193 +472,192 @@ async function syncToNotion(){
             }
           })
         });
-        const saved=await res.json();
-        if(saved.id) task.notionId=saved.id;
+        const saved = await res.json();
+        if(saved.id) task.notionId = saved.id;
       }
     }
 
-    const metaProps={
+    const metaProps = {
       '주차':{title:[{text:{content:WEEK_KEY}}]},
       '원씽':{rich_text:[{text:{content:state.weekOnething||''}}]},
     };
-    DAY_KEYS.forEach(k=>{
-      metaProps[k+'_note']={rich_text:[{text:{content:state.notes[k]||''}}]};
-      metaProps[k+'_event']={rich_text:[{text:{content:state.events[k]||''}}]};
+    getDayKeys().forEach(k => {
+      metaProps[k+'_note'] = {rich_text:[{text:{content:state.notes[k]||''}}]};
+      metaProps[k+'_event'] = {rich_text:[{text:{content:state.events[k]||''}}]};
     });
 
     if(notionMetaPageId){
-      await fetch(`${API_URL}/meta/${notionMetaPageId}`,{
+      await fetch(`${API_URL}/meta/${notionMetaPageId}`, {
         method:'PATCH',
         headers:{'Content-Type':'application/json'},
-        body:JSON.stringify({properties:metaProps})
+        body: JSON.stringify({properties:metaProps})
       });
     } else {
-      const res=await fetch(`${API_URL}/meta`,{
+      const res = await fetch(`${API_URL}/meta`, {
         method:'POST',
         headers:{'Content-Type':'application/json'},
-        body:JSON.stringify({parent:{database_id:META_DB},properties:metaProps})
+        body: JSON.stringify({parent:{database_id:META_DB}, properties:metaProps})
       });
-      const saved=await res.json();
-      if(saved.id) notionMetaPageId=saved.id;
+      const saved = await res.json();
+      if(saved.id) notionMetaPageId = saved.id;
     }
 
-    // saveLocal 호출 없이 직접 localStorage만 저장
-    try{localStorage.setItem('planner_'+WEEK_KEY,JSON.stringify(state));}catch(e){}
-    hasUnsavedChanges=false;
+    try{ localStorage.setItem('planner_' + WEEK_KEY, JSON.stringify(state)); } catch(e){}
+    hasUnsavedChanges = false;
     setSyncStatus('✅ Notion 저장 완료!');
-    setTimeout(()=>setSyncStatus(''),3000);
-  }catch(e){
-    setSyncStatus('❌ 저장 실패: '+e.message);
+    setTimeout(() => setSyncStatus(''), 3000);
+  } catch(e){
+    setSyncStatus('❌ 저장 실패: ' + e.message);
   }
 }
 
 function notionCatToKey(label){
-  if(label.includes('투자'))return'invest';
-  if(label.includes('독서'))return'read';
-  if(label.includes('건강')||label.includes('운동'))return'health';
-  return'etc';
+  if(label.includes('투자')) return 'invest';
+  if(label.includes('독서')) return 'read';
+  if(label.includes('건강') || label.includes('운동')) return 'health';
+  return 'etc';
 }
-function setSyncStatus(msg){document.getElementById('syncStatus').textContent=msg;}
+function setSyncStatus(msg){ document.getElementById('syncStatus').textContent = msg; }
 
 // ==================== UI ====================
 function updateStickyOnethingFromBar(){
-  const el=document.getElementById('stickyVal');
-  const val=el.value.trim();
-  state.weekOnething=val;
+  const el = document.getElementById('stickyVal');
+  const val = el.value.trim();
+  state.weekOnething = val;
   saveLocal();
-  if(val){el.classList.remove('empty');}
-  else{el.classList.add('empty');}
+  if(val){ el.classList.remove('empty'); } else { el.classList.add('empty'); }
 }
 
 function updateStickyOnething(){
-  const val=state.weekOnething||'';
-  const el=document.getElementById('stickyVal');
-  el.value=val;
-  if(val){el.classList.remove('empty');}
-  else{el.classList.add('empty');}
+  const val = state.weekOnething || '';
+  const el = document.getElementById('stickyVal');
+  el.value = val;
+  if(val){ el.classList.remove('empty'); } else { el.classList.add('empty'); }
 }
 
 function renderAll(){
+  updateWeekNav();
   updateStickyOnething();
   renderTopTodo();
   renderBoard();
 }
 
 function renderTopTodo(){
-  const wrap=document.getElementById('topTodo');
-  wrap.innerHTML='';
-  const grid=document.createElement('div');
-  grid.className='top-todo-grid';
+  const wrap = document.getElementById('topTodo');
+  wrap.innerHTML = '';
+  const grid = document.createElement('div');
+  grid.className = 'top-todo-grid';
   wrap.appendChild(grid);
-  CATS.forEach(cat=>{
-    const tasks=state.tasks.filter(t=>t.col==='unassigned'&&t.cat===cat.key);
-    const group=document.createElement('div');
-    group.className='top-cat-group';
-    const lbl=document.createElement('div');
-    lbl.className=`top-cat-label ${cat.catClass}`;
-    lbl.textContent=cat.label;
+  CATS.forEach(cat => {
+    const tasks = state.tasks.filter(t => t.col === 'unassigned' && t.cat === cat.key);
+    const group = document.createElement('div');
+    group.className = 'top-cat-group';
+    const lbl = document.createElement('div');
+    lbl.className = `top-cat-label ${cat.catClass}`;
+    lbl.textContent = cat.label;
     group.appendChild(lbl);
-    tasks.forEach(task=>{
-      const card=document.createElement('div');
-      card.className=`top-card${task.done?' done':''}`;
-      card.draggable=true;
-      card.dataset.id=task.id;
-      const nameEl=document.createElement('input');
-      nameEl.className='top-card-name';
-      nameEl.value=task.name;
-      nameEl.addEventListener('mousedown',e=>e.stopPropagation());
-      nameEl.addEventListener('change',e=>{task.name=e.target.value.trim()||task.name;saveLocal();});
-      const chk=document.createElement('button');
-      chk.className=`card-check${task.done?' checked':''}`;
-      chk.innerHTML=task.done?'✓':'';
-      chk.onclick=()=>{task.done=!task.done;saveLocal();renderTopTodo();renderBoard();};
+    tasks.forEach(task => {
+      const card = document.createElement('div');
+      card.className = `top-card${task.done ? ' done' : ''}`;
+      card.draggable = true;
+      card.dataset.id = task.id;
+      const nameEl = document.createElement('input');
+      nameEl.className = 'top-card-name';
+      nameEl.value = task.name;
+      nameEl.addEventListener('mousedown', e => e.stopPropagation());
+      nameEl.addEventListener('change', e => { task.name = e.target.value.trim() || task.name; saveLocal(); });
+      const chk = document.createElement('button');
+      chk.className = `card-check${task.done ? ' checked' : ''}`;
+      chk.innerHTML = task.done ? '✓' : '';
+      chk.onclick = () => { task.done = !task.done; saveLocal(); renderTopTodo(); renderBoard(); };
       card.appendChild(nameEl);
       card.appendChild(chk);
-      card.addEventListener('dragstart',e=>{dragId=task.id;card.classList.add('dragging');e.dataTransfer.effectAllowed='move';e.dataTransfer.setData('text/plain',String(task.id));});
-      card.addEventListener('dragend',()=>{dragId=null;card.classList.remove('dragging');});
-      card.addEventListener('contextmenu',e=>showCtxMenu(e,task));
-      attachTouchDelete(card,task);
+      card.addEventListener('dragstart', e => { dragId = task.id; card.classList.add('dragging'); e.dataTransfer.effectAllowed = 'move'; e.dataTransfer.setData('text/plain', String(task.id)); });
+      card.addEventListener('dragend', () => { dragId = null; card.classList.remove('dragging'); });
+      card.addEventListener('contextmenu', e => showCtxMenu(e, task));
+      attachTouchDelete(card, task);
       group.appendChild(card);
     });
-    const addBtn=document.createElement('button');
-    addBtn.className='add-btn-inline';
-    addBtn.textContent='＋ 추가';
-    addBtn.onclick=()=>showInlineInput(group,'unassigned',cat.key,addBtn);
+    const addBtn = document.createElement('button');
+    addBtn.className = 'add-btn-inline';
+    addBtn.textContent = '＋ 추가';
+    addBtn.onclick = () => showInlineInput(group, 'unassigned', cat.key, addBtn);
     group.appendChild(addBtn);
     grid.appendChild(group);
   });
 }
 
 function renderBoard(){
-  const board=document.getElementById('board');
-  board.innerHTML='';
-  DAYS.forEach(day=>{
-    const col=document.createElement('div');
-    const colClass=day.type==='today'?'today':day.type==='weekend'?'weekend':'';
-    col.className=`col ${colClass}`.trim();
-    col.dataset.col=day.key;
-    const allTasks=state.tasks.filter(t=>t.col===day.key);
-    col.innerHTML=`<div class="col-head"><span class="col-head-name">${day.label}</span><span class="col-count">${allTasks.length}</span></div>`;
+  const board = document.getElementById('board');
+  board.innerHTML = '';
+  const days = getDays();
+  days.forEach(day => {
+    const col = document.createElement('div');
+    const colClass = day.type === 'today' ? 'today' : day.type === 'weekend' ? 'weekend' : '';
+    col.className = `col ${colClass}`.trim();
+    col.dataset.col = day.key;
+    const allTasks = state.tasks.filter(t => t.col === day.key);
+    col.innerHTML = `<div class="col-head"><span class="col-head-name">${day.label}</span><span class="col-count">${allTasks.length}</span></div>`;
 
-    const eventInp=document.createElement('input');
-    eventInp.className='col-event-input';
-    eventInp.placeholder='이벤트';
-    eventInp.value=state.events[day.key]||'';
-    eventInp.addEventListener('input',e=>{state.events[day.key]=e.target.value;saveLocal();});
-    eventInp.addEventListener('mousedown',e=>e.stopPropagation());
+    const eventInp = document.createElement('input');
+    eventInp.className = 'col-event-input';
+    eventInp.placeholder = '이벤트';
+    eventInp.value = state.events[day.key] || '';
+    eventInp.addEventListener('input', e => { state.events[day.key] = e.target.value; saveLocal(); });
+    eventInp.addEventListener('mousedown', e => e.stopPropagation());
     col.appendChild(eventInp);
 
-    CATS.forEach(cat=>{
-      const catTasks=allTasks.filter(t=>t.cat===cat.key);
-      const group=document.createElement('div');
-      group.className='cat-group';
-      const lbl=document.createElement('div');
-      lbl.className=`cat-label ${cat.catClass}`;
-      lbl.textContent=cat.label;
+    CATS.forEach(cat => {
+      const catTasks = allTasks.filter(t => t.cat === cat.key);
+      const group = document.createElement('div');
+      group.className = 'cat-group';
+      const lbl = document.createElement('div');
+      lbl.className = `cat-label ${cat.catClass}`;
+      lbl.textContent = cat.label;
       group.appendChild(lbl);
-      catTasks.forEach(task=>group.appendChild(makeCard(task)));
-      const addBtn=document.createElement('button');
-      addBtn.className='add-btn-inline';
-      addBtn.textContent='＋ 추가';
-      addBtn.onclick=()=>showInlineInput(group,day.key,cat.key,addBtn);
+      catTasks.forEach(task => group.appendChild(makeCard(task)));
+      const addBtn = document.createElement('button');
+      addBtn.className = 'add-btn-inline';
+      addBtn.textContent = '＋ 추가';
+      addBtn.onclick = () => showInlineInput(group, day.key, cat.key, addBtn);
       group.appendChild(addBtn);
-      group.addEventListener('dragover',e=>{e.preventDefault();col.classList.add('drag-over');});
-      group.addEventListener('drop',e=>{
-        e.preventDefault();col.classList.remove('drag-over');
-        if(dragId!==null){
-          const task=state.tasks.find(t=>t.id===dragId);
-          if(task){task.col=day.key;task.cat=cat.key;saveLocal();renderTopTodo();renderBoard();}
+      group.addEventListener('dragover', e => { e.preventDefault(); col.classList.add('drag-over'); });
+      group.addEventListener('drop', e => {
+        e.preventDefault(); col.classList.remove('drag-over');
+        if(dragId !== null){
+          const task = state.tasks.find(t => t.id === dragId);
+          if(task){ task.col = day.key; task.cat = cat.key; saveLocal(); renderTopTodo(); renderBoard(); }
         }
       });
       col.appendChild(group);
     });
 
-    const spacer=document.createElement('div');
-    spacer.className='col-spacer';
+    const spacer = document.createElement('div');
+    spacer.className = 'col-spacer';
     col.appendChild(spacer);
 
-    const noteWrap=document.createElement('div');
-    noteWrap.className='daily-note-wrap';
-    const noteLbl=document.createElement('div');
-    noteLbl.className='daily-note-label';
-    noteLbl.textContent='📝 하루 소감';
-    const noteTA=document.createElement('textarea');
-    noteTA.className='daily-note';
-    noteTA.placeholder='오늘 하루 어땠어?';
-    noteTA.value=state.notes[day.key]||'';
-    noteTA.addEventListener('input',e=>{state.notes[day.key]=e.target.value;saveLocal();});
-    noteTA.addEventListener('mousedown',e=>e.stopPropagation());
+    const noteWrap = document.createElement('div');
+    noteWrap.className = 'daily-note-wrap';
+    const noteLbl = document.createElement('div');
+    noteLbl.className = 'daily-note-label';
+    noteLbl.textContent = '📝 하루 소감';
+    const noteTA = document.createElement('textarea');
+    noteTA.className = 'daily-note';
+    noteTA.placeholder = '오늘 하루 어땠어?';
+    noteTA.value = state.notes[day.key] || '';
+    noteTA.addEventListener('input', e => { state.notes[day.key] = e.target.value; saveLocal(); });
+    noteTA.addEventListener('mousedown', e => e.stopPropagation());
     noteWrap.appendChild(noteLbl);
     noteWrap.appendChild(noteTA);
     col.appendChild(noteWrap);
 
-    col.addEventListener('dragover',e=>{e.preventDefault();col.classList.add('drag-over');});
-    col.addEventListener('dragleave',e=>{if(!col.contains(e.relatedTarget))col.classList.remove('drag-over');});
-    col.addEventListener('drop',e=>{
-      e.preventDefault();col.classList.remove('drag-over');
-      if(dragId!==null){
-        const task=state.tasks.find(t=>t.id===dragId);
-        if(task){task.col=day.key;saveLocal();renderTopTodo();renderBoard();}
+    col.addEventListener('dragover', e => { e.preventDefault(); col.classList.add('drag-over'); });
+    col.addEventListener('dragleave', e => { if(!col.contains(e.relatedTarget)) col.classList.remove('drag-over'); });
+    col.addEventListener('drop', e => {
+      e.preventDefault(); col.classList.remove('drag-over');
+      if(dragId !== null){
+        const task = state.tasks.find(t => t.id === dragId);
+        if(task){ task.col = day.key; saveLocal(); renderTopTodo(); renderBoard(); }
       }
     });
     board.appendChild(col);
@@ -540,188 +665,165 @@ function renderBoard(){
 }
 
 // ==================== 컨텍스트 메뉴 ====================
-let ctxMenu=null;
-function removeCtxMenu(){if(ctxMenu){ctxMenu.remove();ctxMenu=null;}}
-document.addEventListener('click',removeCtxMenu);
-document.addEventListener('scroll',removeCtxMenu,true);
+let ctxMenu = null;
+function removeCtxMenu(){ if(ctxMenu){ ctxMenu.remove(); ctxMenu = null; } }
+document.addEventListener('click', removeCtxMenu);
+document.addEventListener('scroll', removeCtxMenu, true);
 
-function showCtxMenu(e,task){
-  e.preventDefault();
-  e.stopPropagation();
+function showCtxMenu(e, task){
+  e.preventDefault(); e.stopPropagation();
   removeCtxMenu();
-  const menu=document.createElement('div');
-  menu.className='ctx-menu';
-  menu.style.left=e.clientX+'px';
-  menu.style.top=e.clientY+'px';
-
-  const delItem=document.createElement('div');
-  delItem.className='ctx-menu-item danger';
-  delItem.innerHTML='🗑️ 삭제';
-  delItem.onclick=async()=>{
+  const menu = document.createElement('div');
+  menu.className = 'ctx-menu';
+  menu.style.left = e.clientX + 'px';
+  menu.style.top = e.clientY + 'px';
+  const delItem = document.createElement('div');
+  delItem.className = 'ctx-menu-item danger';
+  delItem.innerHTML = '🗑️ 삭제';
+  delItem.onclick = async () => {
     removeCtxMenu();
-    if(!confirm(`"${task.name}" 을(를) 삭제할까요?`))return;
+    if(!confirm(`"${task.name}" 을(를) 삭제할까요?`)) return;
     deleteTask(task.id);
   };
   menu.appendChild(delItem);
   document.body.appendChild(menu);
-  ctxMenu=menu;
-
-  const rect=menu.getBoundingClientRect();
-  if(rect.right>window.innerWidth)menu.style.left=(e.clientX-rect.width)+'px';
-  if(rect.bottom>window.innerHeight)menu.style.top=(e.clientY-rect.height)+'px';
+  ctxMenu = menu;
+  const rect = menu.getBoundingClientRect();
+  if(rect.right > window.innerWidth) menu.style.left = (e.clientX - rect.width) + 'px';
+  if(rect.bottom > window.innerHeight) menu.style.top = (e.clientY - rect.height) + 'px';
 }
 
-// ==================== 모바일 터치 길게누르기 삭제 ====================
+// ==================== 모바일 터치 길게누르기 ====================
 function attachTouchDelete(card, task){
-  let timer=null;
-  let moved=false;
-
-  card.addEventListener('touchstart',e=>{
-    moved=false;
-    timer=setTimeout(()=>{
+  let timer = null, moved = false;
+  card.addEventListener('touchstart', e => {
+    moved = false;
+    timer = setTimeout(() => {
       if(!moved){
         if(navigator.vibrate) navigator.vibrate(40);
         if(confirm(`"${task.name}"\n삭제할까요?`)) deleteTask(task.id);
       }
-    },600);
-  },{passive:true});
-
-  card.addEventListener('touchmove',()=>{
-    moved=true;
-    clearTimeout(timer);
-  },{passive:true});
-
-  card.addEventListener('touchend',()=>clearTimeout(timer));
-  card.addEventListener('touchcancel',()=>clearTimeout(timer));
+    }, 600);
+  }, {passive:true});
+  card.addEventListener('touchmove', () => { moved = true; clearTimeout(timer); }, {passive:true});
+  card.addEventListener('touchend', () => clearTimeout(timer));
+  card.addEventListener('touchcancel', () => clearTimeout(timer));
 }
 
 async function deleteTask(taskId){
-  const task=state.tasks.find(t=>t.id===taskId);
-  if(!task)return;
+  const task = state.tasks.find(t => t.id === taskId);
+  if(!task) return;
   if(task.notionId){
-    try{await fetch(`${API_URL}/tasks/${task.notionId}`,{method:'DELETE'});}
-    catch(e){console.warn('Notion 삭제 실패',e);}
+    try{ await fetch(`${API_URL}/tasks/${task.notionId}`, {method:'DELETE'}); } catch(e){ console.warn('Notion 삭제 실패', e); }
   }
-  state.tasks=state.tasks.filter(t=>t.id!==taskId);
-  saveLocal();renderTopTodo();renderBoard();
+  state.tasks = state.tasks.filter(t => t.id !== taskId);
+  saveLocal(); renderTopTodo(); renderBoard();
 }
 
 function makeCard(task){
-  const card=document.createElement('div');
-  card.className=`card${task.done?' done':''}`;
-  card.draggable=true;
-  card.dataset.id=task.id;
-  const nameEl=document.createElement('input');
-  nameEl.className='card-name';
-  nameEl.value=task.name;
-  nameEl.addEventListener('mousedown',e=>e.stopPropagation());
-  nameEl.addEventListener('focus',()=>card.draggable=false);
-  nameEl.addEventListener('blur',()=>{task.name=nameEl.value.trim()||task.name;saveLocal();card.draggable=true;});
-  const chk=document.createElement('button');
-  chk.className=`card-check${task.done?' checked':''}`;
-  chk.innerHTML=task.done?'✓':'';
-  chk.onclick=()=>{task.done=!task.done;saveLocal();renderBoard();renderTopTodo();};
+  const card = document.createElement('div');
+  card.className = `card${task.done ? ' done' : ''}`;
+  card.draggable = true;
+  card.dataset.id = task.id;
+  const nameEl = document.createElement('input');
+  nameEl.className = 'card-name';
+  nameEl.value = task.name;
+  nameEl.addEventListener('mousedown', e => e.stopPropagation());
+  nameEl.addEventListener('focus', () => card.draggable = false);
+  nameEl.addEventListener('blur', () => { task.name = nameEl.value.trim() || task.name; saveLocal(); card.draggable = true; });
+  const chk = document.createElement('button');
+  chk.className = `card-check${task.done ? ' checked' : ''}`;
+  chk.innerHTML = task.done ? '✓' : '';
+  chk.onclick = () => { task.done = !task.done; saveLocal(); renderBoard(); renderTopTodo(); };
   card.appendChild(nameEl);
   card.appendChild(chk);
-  card.addEventListener('dragstart',e=>{dragId=task.id;card.classList.add('dragging');e.dataTransfer.effectAllowed='move';e.dataTransfer.setData('text/plain',String(task.id));});
-  card.addEventListener('dragend',()=>{dragId=null;card.classList.remove('dragging');});
-  card.addEventListener('contextmenu',e=>showCtxMenu(e,task));
-  attachTouchDelete(card,task);
+  card.addEventListener('dragstart', e => { dragId = task.id; card.classList.add('dragging'); e.dataTransfer.effectAllowed = 'move'; e.dataTransfer.setData('text/plain', String(task.id)); });
+  card.addEventListener('dragend', () => { dragId = null; card.classList.remove('dragging'); });
+  card.addEventListener('contextmenu', e => showCtxMenu(e, task));
+  attachTouchDelete(card, task);
   return card;
 }
 
-// ==================== 인라인 입력 (버튼 클릭으로 등록) ====================
-function showInlineInput(group,colKey,catKey,addBtn){
-  if(group.querySelector('.add-input-wrap'))return;
-  addBtn.style.display='none';
-
-  const wrap=document.createElement('div');
-  wrap.className='add-input-wrap';
-
-  const inp=document.createElement('input');
-  inp.className='add-input';
-  inp.placeholder='할일 입력';
-
-  const confirmBtn=document.createElement('button');
-  confirmBtn.className='add-confirm-btn';
-  confirmBtn.textContent='✓';
-  confirmBtn.title='추가';
-
-  const cancelBtn=document.createElement('button');
-  cancelBtn.className='add-cancel-btn';
-  cancelBtn.textContent='✕';
-  cancelBtn.title='취소';
-
+// ==================== 인라인 입력 ====================
+function showInlineInput(group, colKey, catKey, addBtn){
+  if(group.querySelector('.add-input-wrap')) return;
+  addBtn.style.display = 'none';
+  const wrap = document.createElement('div');
+  wrap.className = 'add-input-wrap';
+  const inp = document.createElement('input');
+  inp.className = 'add-input';
+  inp.placeholder = '할일 입력';
+  const confirmBtn = document.createElement('button');
+  confirmBtn.className = 'add-confirm-btn';
+  confirmBtn.textContent = '✓';
+  const cancelBtn = document.createElement('button');
+  cancelBtn.className = 'add-cancel-btn';
+  cancelBtn.textContent = '✕';
   function commit(){
     if(inp.value.trim()){
-      state.tasks.push({id:Date.now(),col:colKey,cat:catKey,name:inp.value.trim(),done:false});
-      saveLocal();renderTopTodo();renderBoard();
-    } else {
-      renderTopTodo();renderBoard();
-    }
+      state.tasks.push({id:Date.now(), col:colKey, cat:catKey, name:inp.value.trim(), done:false});
+      saveLocal(); renderTopTodo(); renderBoard();
+    } else { renderTopTodo(); renderBoard(); }
   }
-
-  // 마우스 클릭 & 터치 모두 지원
-  confirmBtn.addEventListener('mousedown',e=>{e.preventDefault();commit();});
-  confirmBtn.addEventListener('touchend',e=>{e.preventDefault();e.stopPropagation();commit();});
-  cancelBtn.addEventListener('mousedown',e=>{e.preventDefault();renderTopTodo();renderBoard();});
-  cancelBtn.addEventListener('touchend',e=>{e.preventDefault();e.stopPropagation();renderTopTodo();renderBoard();});
-
-  // 엔터/ESC도 유지 (PC 편의)
-  inp.addEventListener('keydown',e=>{
-    if(e.key==='Enter') commit();
-    if(e.key==='Escape'){renderTopTodo();renderBoard();}
+  confirmBtn.addEventListener('mousedown', e => { e.preventDefault(); commit(); });
+  confirmBtn.addEventListener('touchend', e => { e.preventDefault(); e.stopPropagation(); commit(); });
+  cancelBtn.addEventListener('mousedown', e => { e.preventDefault(); renderTopTodo(); renderBoard(); });
+  cancelBtn.addEventListener('touchend', e => { e.preventDefault(); e.stopPropagation(); renderTopTodo(); renderBoard(); });
+  inp.addEventListener('keydown', e => {
+    if(e.key === 'Enter') commit();
+    if(e.key === 'Escape'){ renderTopTodo(); renderBoard(); }
   });
-
-  wrap.appendChild(inp);
-  wrap.appendChild(confirmBtn);
-  wrap.appendChild(cancelBtn);
-  group.insertBefore(wrap,addBtn);
-  setTimeout(()=>inp.focus(),30);
+  wrap.appendChild(inp); wrap.appendChild(confirmBtn); wrap.appendChild(cancelBtn);
+  group.insertBefore(wrap, addBtn);
+  setTimeout(() => inp.focus(), 30);
 }
 
+// ==================== 새 주차 시작 ====================
 async function resetWeek(){
-  if(!confirm('새 주차를 시작합니다.\n현재 데이터는 Notion에 저장되어 있습니다.\n계속할까요?'))return;
+  if(!isCurrentWeek()){
+    alert('새 주차 시작은 현재 주차에서만 가능해요.\n현재주 버튼을 눌러 이동 후 시도해주세요.');
+    return;
+  }
+  if(!confirm('새 주차를 시작합니다.\n현재 데이터는 Notion에 저장되어 있습니다.\n계속할까요?')) return;
 
   setSyncStatus('전주 데이터 확인 중...');
-  let prevTasks=[];
+  let prevTasks = [];
   try{
-    const res=await fetch(`${API_URL}/tasks?db_id=${TASKS_DB}`);
-    const data=await res.json();
+    const res = await fetch(`${API_URL}/tasks?db_id=${TASKS_DB}`);
+    const data = await res.json();
     if(data.results){
-      const prevMon=new Date(DAYS[0].date);
-      prevMon.setDate(prevMon.getDate()-7);
-      const jan4=new Date(prevMon.getFullYear(),0,4);
-      const s=new Date(jan4);s.setDate(jan4.getDate()-(jan4.getDay()||7)+1);
-      const prevWkNum=Math.round((prevMon-s)/(7*86400000))+1;
-      const prevWkKey=`${prevMon.getFullYear()}-W${String(prevWkNum).padStart(2,'0')}`;
+      const prevMon = new Date(TODAY_WEEK_INFO.mon);
+      prevMon.setDate(prevMon.getDate() - 7);
+      const jan4 = new Date(prevMon.getFullYear(), 0, 4);
+      const s = new Date(jan4); s.setDate(jan4.getDate() - (jan4.getDay() || 7) + 1);
+      const prevWkNum = Math.round((prevMon - s) / (7 * 86400000)) + 1;
+      const prevWkKey = `${prevMon.getFullYear()}-W${String(prevWkNum).padStart(2, '0')}`;
 
-      prevTasks=data.results
-        .filter(p=>!p.archived)
-        .filter(p=>(p.properties['주차']?.rich_text?.[0]?.plain_text||'')=== prevWkKey)
-        .filter(p=>!(p.properties['완료']?.checkbox))
-        .map(p=>({
-          notionId:p.id,
-          col:p.properties['요일']?.select?.name||'unassigned',
-          cat:notionCatToKey(p.properties['카테고리']?.select?.name||''),
-          name:p.properties['할일']?.title?.[0]?.plain_text||'',
-          done:false,
+      prevTasks = data.results
+        .filter(p => !p.archived)
+        .filter(p => (p.properties['주차']?.rich_text?.[0]?.plain_text || '') === prevWkKey)
+        .filter(p => !(p.properties['완료']?.checkbox))
+        .map(p => ({
+          notionId: p.id,
+          col: p.properties['요일']?.select?.name || 'unassigned',
+          cat: notionCatToKey(p.properties['카테고리']?.select?.name || ''),
+          name: p.properties['할일']?.title?.[0]?.plain_text || '',
+          done: false,
         }))
-        .filter(p=>p.name);
+        .filter(p => p.name);
     }
-  }catch(e){console.warn('전주 데이터 로드 실패',e);}
+  } catch(e){ console.warn('전주 데이터 로드 실패', e); }
 
   setSyncStatus('');
   showCarryOverModal(prevTasks);
 }
 
 function showCarryOverModal(prevTasks){
-  const overlay=document.createElement('div');
-  overlay.className='modal-overlay';
-
-  const modal=document.createElement('div');
-  modal.className='modal';
-  modal.innerHTML=`
+  const overlay = document.createElement('div');
+  overlay.className = 'modal-overlay';
+  const modal = document.createElement('div');
+  modal.className = 'modal';
+  modal.innerHTML = `
     <div class="modal-title">🔄 새 주차 시작</div>
     <div class="modal-sub">전주 미완료 항목 중 이번 주로 가져올 항목을 선택하세요.</div>
     <div class="modal-list" id="carryList"></div>
@@ -731,91 +833,83 @@ function showCarryOverModal(prevTasks){
       <button class="btn btn-sync" id="carryConfirm">선택 항목 가져오기</button>
     </div>
   `;
+  const list = modal.querySelector('#carryList');
+  const catLabel = k => CATS.find(c => c.key === k)?.label || k;
+  const dayLabel = k => getDays().find(d => d.key === k)?.label || k;
 
-  const list=modal.querySelector('#carryList');
-  const catLabel=k=>CATS.find(c=>c.key===k)?.label||k;
-  const dayLabel=k=>DAYS.find(d=>d.key===k)?.label||k;
-
-  if(prevTasks.length===0){
-    list.innerHTML='<div class="modal-empty">전주 미완료 항목이 없어요 🎉</div>';
+  if(prevTasks.length === 0){
+    list.innerHTML = '<div class="modal-empty">전주 미완료 항목이 없어요 🎉</div>';
   } else {
-    const allWrap=document.createElement('div');
-    allWrap.style.cssText='display:flex;align-items:center;gap:8px;padding:4px 10px 8px;border-bottom:1px solid var(--border);margin-bottom:4px;';
-    const allChk=document.createElement('input');allChk.type='checkbox';allChk.id='allChk';
-    const allLbl=document.createElement('label');allLbl.htmlFor='allChk';allLbl.style.cssText='font-size:11px;font-weight:600;cursor:pointer;color:var(--text-secondary);';allLbl.textContent='전체 선택';
-    allWrap.appendChild(allChk);allWrap.appendChild(allLbl);
+    const allWrap = document.createElement('div');
+    allWrap.style.cssText = 'display:flex;align-items:center;gap:8px;padding:4px 10px 8px;border-bottom:1px solid var(--border);margin-bottom:4px;';
+    const allChk = document.createElement('input'); allChk.type = 'checkbox'; allChk.id = 'allChk';
+    const allLbl = document.createElement('label'); allLbl.htmlFor = 'allChk'; allLbl.style.cssText = 'font-size:11px;font-weight:600;cursor:pointer;color:var(--text-secondary);'; allLbl.textContent = '전체 선택';
+    allWrap.appendChild(allChk); allWrap.appendChild(allLbl);
     list.appendChild(allWrap);
-
-    prevTasks.forEach((task,i)=>{
-      const item=document.createElement('div');
-      item.className='modal-item';
-      const chk=document.createElement('input');chk.type='checkbox';chk.dataset.idx=i;
-      const name=document.createElement('span');name.className='modal-item-name';name.textContent=task.name;
-      const meta=document.createElement('span');meta.className='modal-item-meta';
-      meta.textContent=`${catLabel(task.cat)} · ${task.col==='unassigned'?'할일':dayLabel(task.col)}`;
-      item.appendChild(chk);item.appendChild(name);item.appendChild(meta);
-      item.onclick=e=>{if(e.target!==chk)chk.checked=!chk.checked;};
+    prevTasks.forEach((task, i) => {
+      const item = document.createElement('div'); item.className = 'modal-item';
+      const chk = document.createElement('input'); chk.type = 'checkbox'; chk.dataset.idx = i;
+      const name = document.createElement('span'); name.className = 'modal-item-name'; name.textContent = task.name;
+      const meta = document.createElement('span'); meta.className = 'modal-item-meta';
+      meta.textContent = `${catLabel(task.cat)} · ${task.col === 'unassigned' ? '할일' : dayLabel(task.col)}`;
+      item.appendChild(chk); item.appendChild(name); item.appendChild(meta);
+      item.onclick = e => { if(e.target !== chk) chk.checked = !chk.checked; };
       list.appendChild(item);
     });
-
-    allChk.onchange=()=>{list.querySelectorAll('input[data-idx]').forEach(c=>c.checked=allChk.checked);};
+    allChk.onchange = () => { list.querySelectorAll('input[data-idx]').forEach(c => c.checked = allChk.checked); };
   }
 
   overlay.appendChild(modal);
   document.body.appendChild(overlay);
-
-  modal.querySelector('#carryCancel').onclick=()=>overlay.remove();
-  modal.querySelector('#carryReset').onclick=()=>{overlay.remove();doResetWeek([]);};
-  modal.querySelector('#carryConfirm').onclick=()=>{
-    const selected=[];
-    list.querySelectorAll('input[data-idx]').forEach(c=>{
-      if(c.checked)selected.push(prevTasks[parseInt(c.dataset.idx)]);
+  modal.querySelector('#carryCancel').onclick = () => overlay.remove();
+  modal.querySelector('#carryReset').onclick = () => { overlay.remove(); doResetWeek([]); };
+  modal.querySelector('#carryConfirm').onclick = () => {
+    const selected = [];
+    list.querySelectorAll('input[data-idx]').forEach(c => {
+      if(c.checked) selected.push(prevTasks[parseInt(c.dataset.idx)]);
     });
-    overlay.remove();
-    doResetWeek(selected);
+    overlay.remove(); doResetWeek(selected);
   };
 }
 
 function doResetWeek(carryTasks){
-  localStorage.removeItem('planner_'+WEEK_KEY);
-  state=initState();
-  notionMetaPageId=null;
-  carryTasks.forEach(t=>{
-    state.tasks.push({id:Date.now()+Math.random(),col:t.col,cat:t.cat,name:t.name,done:false});
+  localStorage.removeItem('planner_' + getWeekKey());
+  state = initState();
+  notionMetaPageId = null;
+  carryTasks.forEach(t => {
+    state.tasks.push({id:Date.now()+Math.random(), col:t.col, cat:t.cat, name:t.name, done:false});
   });
-  saveLocal();
-  renderAll();
-  setSyncStatus(carryTasks.length>0?`✅ ${carryTasks.length}개 항목을 가져왔어요`:'새 주차 시작!');
-  setTimeout(()=>setSyncStatus(''),3000);
+  saveLocal(); renderAll();
+  setSyncStatus(carryTasks.length > 0 ? `✅ ${carryTasks.length}개 항목을 가져왔어요` : '새 주차 시작!');
+  setTimeout(() => setSyncStatus(''), 3000);
 }
 
 function exportData(){
-  let text='=== 일상부자 주간 플래너 ===\n';
-  if(state.weekOnething)text+=`⭐ 이번주 원씽: ${state.weekOnething}\n`;
-
-  text+='\n[이번주 할일]\n';
-  CATS.forEach(cat=>{
-    const tasks=state.tasks.filter(t=>t.col==='unassigned'&&t.cat===cat.key);
-    if(tasks.length){text+=`${cat.label}\n`;tasks.forEach(t=>text+=`  ${t.done?'[✓]':'[ ]' } ${t.name}\n`);}
+  let text = '=== 일상부자 주간 플래너 ===\n';
+  text += `📅 ${getWeekKey()}\n`;
+  if(state.weekOnething) text += `⭐ 이번주 원씽: ${state.weekOnething}\n`;
+  text += '\n[이번주 할일]\n';
+  CATS.forEach(cat => {
+    const tasks = state.tasks.filter(t => t.col === 'unassigned' && t.cat === cat.key);
+    if(tasks.length){ text += `${cat.label}\n`; tasks.forEach(t => text += `  ${t.done?'[✓]':'[ ]'} ${t.name}\n`); }
   });
-  text+='\n[요일별 계획]\n';
-  DAYS.forEach(day=>{
-    const tasks=state.tasks.filter(t=>t.col===day.key);
-    const note=state.notes[day.key]||'';
-    if(!tasks.length&&!note)return;
-    text+=`\n${day.label}\n`;
-    CATS.forEach(cat=>{
-      const ct=tasks.filter(t=>t.cat===cat.key);
-      if(ct.length){text+=`  ${cat.label}\n`;ct.forEach(t=>text+=`    ${t.done?'[✓]':'[ ]' } ${t.name}\n`);}
+  text += '\n[요일별 계획]\n';
+  getDays().forEach(day => {
+    const tasks = state.tasks.filter(t => t.col === day.key);
+    const note = state.notes[day.key] || '';
+    if(!tasks.length && !note) return;
+    text += `\n${day.label}\n`;
+    CATS.forEach(cat => {
+      const ct = tasks.filter(t => t.cat === cat.key);
+      if(ct.length){ text += `  ${cat.label}\n`; ct.forEach(t => text += `    ${t.done?'[✓]':'[ ]'} ${t.name}\n`); }
     });
-    if(note)text+=`  📝 소감: ${note}\n`;
+    if(note) text += `  📝 소감: ${note}\n`;
   });
-  try{navigator.clipboard.writeText(text).then(()=>alert('복사 완료!'));}
-  catch(e){const ta=document.createElement('textarea');ta.value=text;document.body.appendChild(ta);ta.select();document.execCommand('copy');document.body.removeChild(ta);alert('복사 완료!');}
+  try{ navigator.clipboard.writeText(text).then(() => alert('복사 완료!')); }
+  catch(e){ const ta = document.createElement('textarea'); ta.value = text; document.body.appendChild(ta); ta.select(); document.execCommand('copy'); document.body.removeChild(ta); alert('복사 완료!'); }
 }
 
 // ==================== 시작 ====================
-document.getElementById('weekRange').textContent=WEEK_RANGE_TEXT;
 loadFromNotion();
 </script>
 </body>
