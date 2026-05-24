@@ -182,15 +182,6 @@ input.sticky-val:focus{outline:none;}
 <div class="top-section">
   <div class="section-box">
     <div class="section-box-title">📅 월간계획</div>
-    <!-- 주차 네비게이션 -->
-    <div class="week-nav">
-      <button class="week-nav-btn" onclick="moveWeek(-1)" title="이전 주">◀</button>
-      <div class="week-nav-center">
-        <span class="week-nav-key" id="navWeekKey">-</span>
-        <button class="week-nav-today-btn" id="todayBtn" onclick="goToThisWeek()">현재주</button>
-      </div>
-      <button class="week-nav-btn" onclick="moveWeek(1)" title="다음 주">▶</button>
-    </div>
     <a href="https://www.notion.so/2026-351d71b6b600818e834bc5c008c4e1b5" target="_blank" class="monthly-plan-link">
       <span class="monthly-plan-icon">📋</span>
       <span class="monthly-plan-text">2026 월간계획</span>
@@ -257,69 +248,13 @@ function getWeekInfoFromDate(baseDate){
   return { wk, days, rangeText, mon };
 }
 
-// ==================== 주차 이동 ====================
-const TODAY_WEEK_INFO = getWeekInfoFromDate(new Date());
-const TODAY_WEEK_KEY = TODAY_WEEK_INFO.wk;
+// ==================== 주차 정보 ====================
+const WEEK_INFO = getWeekInfoFromDate(new Date());
+const WEEK_KEY = WEEK_INFO.wk;
 
-// 현재 보고 있는 주차 기준 날짜 (월요일)
-let currentViewMonday = new Date(TODAY_WEEK_INFO.mon);
-
-function getCurrentViewInfo(){
-  return getWeekInfoFromDate(currentViewMonday);
-}
-
-function moveWeek(delta){
-  // 미저장 변경사항 있으면 먼저 저장
-  if(hasUnsavedChanges){
-    syncToNotion().then(()=> doMoveWeek(delta));
-  } else {
-    doMoveWeek(delta);
-  }
-}
-
-async function doMoveWeek(delta){
-  currentViewMonday = new Date(currentViewMonday);
-  currentViewMonday.setDate(currentViewMonday.getDate() + delta * 7);
-  notionMetaPageId = null;
-  await loadFromNotion();
-}
-
-function goToThisWeek(){
-  if(hasUnsavedChanges){
-    syncToNotion().then(()=> doGoToThisWeek());
-  } else {
-    doGoToThisWeek();
-  }
-}
-
-async function doGoToThisWeek(){
-  currentViewMonday = new Date(TODAY_WEEK_INFO.mon);
-  notionMetaPageId = null;
-  await loadFromNotion();
-}
-
-function isCurrentWeek(){
-  const info = getCurrentViewInfo();
-  return info.wk === TODAY_WEEK_KEY;
-}
-
-function updateWeekNav(){
-  const info = getCurrentViewInfo();
-  const navMon = info.days[0].date;
-  const navSun = info.days[6].date;
-  const navFmt = d => `${d.getMonth()+1}/${d.getDate()}`;
-  document.getElementById('navWeekKey').textContent = `${navFmt(navMon)} ~ ${navFmt(navSun)}`;
-  document.getElementById('weekRange').textContent = info.rangeText;
-
-  const todayBtn = document.getElementById('todayBtn');
-  if(isCurrentWeek()){
-    todayBtn.classList.add('current');
-    todayBtn.textContent = '현재주 ✓';
-  } else {
-    todayBtn.classList.remove('current');
-    todayBtn.textContent = '현재주';
-  }
-}
+function getDays(){ return WEEK_INFO.days; }
+function getWeekKey(){ return WEEK_KEY; }
+function getDayKeys(){ return getDays().map(d => d.key); }
 
 // ==================== 상태 ====================
 const CATS = [
@@ -516,7 +451,7 @@ function updateStickyOnething(){
 }
 
 function renderAll(){
-  updateWeekNav();
+  document.getElementById('weekRange').textContent = WEEK_INFO.rangeText;
   updateStickyOnething();
   renderTopTodo();
   renderBoard();
@@ -760,16 +695,28 @@ function showInlineInput(group, colKey, catKey, addBtn){
 
 // ==================== 새 주차 시작 ====================
 async function resetWeek(){
-  if(!isCurrentWeek()){
-    alert('새 주차 시작은 현재 주차에서만 가능해요.\n현재주 버튼을 눌러 이동 후 시도해주세요.');
-    return;
-  }
   if(!confirm('새 주차를 시작합니다.\n현재 데이터는 Notion에 저장되어 있습니다.\n계속할까요?')) return;
+  await loadPrevAndShowModal();
+}
 
+// 주차 자동 변경 감지 (페이지 로드 시)
+function checkWeekChange(){
+  const savedWeek = localStorage.getItem('planner_last_week');
+  if(savedWeek && savedWeek !== WEEK_KEY){
+    const currentData = loadLocal();
+    if(!currentData || !currentData.tasks || currentData.tasks.length === 0){
+      setTimeout(() => loadPrevAndShowModal(true), 800);
+    }
+  }
+  localStorage.setItem('planner_last_week', WEEK_KEY);
+}
+
+async function loadPrevAndShowModal(isAuto = false){
   setSyncStatus('전주 데이터 확인 중...');
   let prevTasks = [];
   try{
-    const prevMon = new Date(TODAY_WEEK_INFO.mon);
+    // 현재 주차의 이전 주차 키 계산
+    const prevMon = new Date(WEEK_INFO.mon);
     prevMon.setDate(prevMon.getDate() - 7);
     const jan4 = new Date(prevMon.getFullYear(), 0, 4);
     const s = new Date(jan4); s.setDate(jan4.getDate() - (jan4.getDay() || 7) + 1);
@@ -794,52 +741,80 @@ async function resetWeek(){
   } catch(e){ console.warn('전주 데이터 로드 실패', e); }
 
   setSyncStatus('');
-  showCarryOverModal(prevTasks);
+  showCarryOverModal(prevTasks, isAuto);
 }
 
-function showCarryOverModal(prevTasks){
+function showCarryOverModal(prevTasks, isAuto = false){
   const overlay = document.createElement('div');
   overlay.className = 'modal-overlay';
   const modal = document.createElement('div');
   modal.className = 'modal';
+
+  const title = isAuto ? '📅 새로운 주차가 시작됐어요!' : '🔄 새 주차 시작';
+  const sub = isAuto
+    ? '지난주 마무리 못한 일정이에요. 이번 주로 가져올 항목을 선택하세요.'
+    : '전주 미완료 항목 중 이번 주로 가져올 항목을 선택하세요.';
+
   modal.innerHTML = `
-    <div class="modal-title">🔄 새 주차 시작</div>
-    <div class="modal-sub">전주 미완료 항목 중 이번 주로 가져올 항목을 선택하세요.</div>
+    <div class="modal-title">${title}</div>
+    <div class="modal-sub">${sub}</div>
     <div class="modal-list" id="carryList"></div>
     <div class="modal-btns">
-      <button class="btn" id="carryCancel">취소</button>
+      <button class="btn" id="carryCancel">${isAuto ? '나중에' : '취소'}</button>
       <button class="btn btn-reset" id="carryReset">가져오지 않고 시작</button>
       <button class="btn btn-sync" id="carryConfirm">선택 항목 가져오기</button>
     </div>
   `;
+
   const list = modal.querySelector('#carryList');
-  const catLabel = k => CATS.find(c => c.key === k)?.label || k;
-  const dayLabel = k => getDays().find(d => d.key === k)?.label || k;
 
   if(prevTasks.length === 0){
     list.innerHTML = '<div class="modal-empty">전주 미완료 항목이 없어요 🎉</div>';
+    // 미완료 없으면 취소버튼 숨기고 시작 버튼만
+    modal.querySelector('#carryConfirm').style.display = 'none';
   } else {
+    // 카테고리별로 그룹핑해서 표시
     const allWrap = document.createElement('div');
-    allWrap.style.cssText = 'display:flex;align-items:center;gap:8px;padding:4px 10px 8px;border-bottom:1px solid var(--border);margin-bottom:4px;';
+    allWrap.style.cssText = 'display:flex;align-items:center;gap:8px;padding:4px 10px 8px;border-bottom:1px solid var(--border);margin-bottom:8px;';
     const allChk = document.createElement('input'); allChk.type = 'checkbox'; allChk.id = 'allChk';
-    const allLbl = document.createElement('label'); allLbl.htmlFor = 'allChk'; allLbl.style.cssText = 'font-size:11px;font-weight:600;cursor:pointer;color:var(--text-secondary);'; allLbl.textContent = '전체 선택';
+    const allLbl = document.createElement('label'); allLbl.htmlFor = 'allChk';
+    allLbl.style.cssText = 'font-size:11px;font-weight:600;cursor:pointer;color:var(--text-secondary);';
+    allLbl.textContent = '전체 선택';
     allWrap.appendChild(allChk); allWrap.appendChild(allLbl);
     list.appendChild(allWrap);
-    prevTasks.forEach((task, i) => {
-      const item = document.createElement('div'); item.className = 'modal-item';
-      const chk = document.createElement('input'); chk.type = 'checkbox'; chk.dataset.idx = i;
-      const name = document.createElement('span'); name.className = 'modal-item-name'; name.textContent = task.name;
-      const meta = document.createElement('span'); meta.className = 'modal-item-meta';
-      meta.textContent = `${catLabel(task.cat)} · ${task.col === 'unassigned' ? '할일' : dayLabel(task.col)}`;
-      item.appendChild(chk); item.appendChild(name); item.appendChild(meta);
-      item.onclick = e => { if(e.target !== chk) chk.checked = !chk.checked; };
-      list.appendChild(item);
+
+    // 카테고리별 그룹핑
+    CATS.forEach(cat => {
+      const catTasks = prevTasks.filter(t => t.cat === cat.key);
+      if(catTasks.length === 0) return;
+
+      // 카테고리 헤더
+      const catHeader = document.createElement('div');
+      catHeader.style.cssText = 'padding:4px 10px 4px;margin-bottom:4px;';
+      const catBadge = document.createElement('span');
+      catBadge.className = `top-cat-label ${cat.catClass}`;
+      catBadge.textContent = cat.label;
+      catHeader.appendChild(catBadge);
+      list.appendChild(catHeader);
+
+      catTasks.forEach((task, _) => {
+        const idx = prevTasks.indexOf(task);
+        const item = document.createElement('div'); item.className = 'modal-item';
+        item.style.marginBottom = '4px';
+        const chk = document.createElement('input'); chk.type = 'checkbox'; chk.dataset.idx = idx;
+        const name = document.createElement('span'); name.className = 'modal-item-name'; name.textContent = task.name;
+        item.appendChild(chk); item.appendChild(name);
+        item.onclick = e => { if(e.target !== chk) chk.checked = !chk.checked; };
+        list.appendChild(item);
+      });
     });
+
     allChk.onchange = () => { list.querySelectorAll('input[data-idx]').forEach(c => c.checked = allChk.checked); };
   }
 
   overlay.appendChild(modal);
   document.body.appendChild(overlay);
+
   modal.querySelector('#carryCancel').onclick = () => overlay.remove();
   modal.querySelector('#carryReset').onclick = () => { overlay.remove(); doResetWeek([]); };
   modal.querySelector('#carryConfirm').onclick = () => {
@@ -852,11 +827,11 @@ function showCarryOverModal(prevTasks){
 }
 
 function doResetWeek(carryTasks){
-  localStorage.removeItem('planner_' + getWeekKey());
+  localStorage.removeItem('planner_' + WEEK_KEY);
   state = initState();
   notionMetaPageId = null;
   carryTasks.forEach(t => {
-    state.tasks.push({id:Date.now()+Math.random(), col:t.col, cat:t.cat, name:t.name, done:false});
+    state.tasks.push({id:Date.now()+Math.random(), col:'unassigned', cat:t.cat, name:t.name, done:false});
   });
   saveLocal(); renderAll();
   setSyncStatus(carryTasks.length > 0 ? `✅ ${carryTasks.length}개 항목을 가져왔어요` : '새 주차 시작!');
@@ -889,7 +864,8 @@ function exportData(){
 }
 
 // ==================== 시작 ====================
-loadFromNotion();
+document.getElementById('weekRange').textContent = WEEK_INFO.rangeText;
+loadFromNotion().then(() => checkWeekChange());
 </script>
 </body>
 </html>
