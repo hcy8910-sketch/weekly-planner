@@ -59,15 +59,7 @@ body{font-family:'Noto Sans KR',sans-serif;background:var(--bg);color:var(--text
 .section-box{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);overflow:hidden;}
 .section-box-title{background:var(--surface2);font-size:11px;font-weight:700;color:var(--text-secondary);padding:7px 12px;border-bottom:1px solid var(--border);letter-spacing:.03em;}
 
-/* ===== 주차 네비게이션 ===== */
-.week-nav{display:flex;align-items:center;justify-content:space-between;padding:7px 10px;border-bottom:1px solid var(--border);background:var(--surface2);}
-.week-nav-btn{width:26px;height:26px;border-radius:4px;border:1px solid var(--border2);background:var(--surface);color:var(--text-secondary);font-size:13px;cursor:pointer;display:flex;align-items:center;justify-content:center;padding:0;font-family:inherit;transition:all .12s;flex-shrink:0;}
-.week-nav-btn:hover{background:var(--today);border-color:var(--today-border);color:var(--today-text);}
-.week-nav-center{display:flex;flex-direction:column;align-items:center;gap:2px;flex:1;min-width:0;}
-.week-nav-key{font-size:11px;font-weight:700;color:var(--text-primary);}
-.week-nav-today-btn{font-size:10px;padding:2px 7px;border-radius:3px;border:1px solid var(--today-border);background:var(--today);color:var(--today-text);cursor:pointer;font-family:inherit;transition:all .12s;white-space:nowrap;}
-.week-nav-today-btn:hover{background:var(--today-border);color:#fff;}
-.week-nav-today-btn.current{background:var(--today-border);color:#fff;cursor:default;}
+
 
 .onething-input{width:100%;border:none;outline:none;padding:10px 12px;font-size:13px;font-weight:500;font-family:'Noto Sans KR',sans-serif;background:transparent;color:var(--text-primary);}
 .onething-input::placeholder{color:var(--text-tertiary);font-weight:400;}
@@ -264,10 +256,6 @@ const CATS = [
   {key:'etc',    label:'🗂️ 기타',   catClass:'cat-etc'},
 ];
 
-function getDays(){ return getCurrentViewInfo().days; }
-function getWeekKey(){ return getCurrentViewInfo().wk; }
-function getDayKeys(){ return getDays().map(d => d.key); }
-
 let state = null;
 let dragId = null;
 let idCounter = 1;
@@ -308,7 +296,6 @@ async function loadFromNotion(){
   state = loadLocal() || initState();
 
   try{
-    const WEEK_KEY = getWeekKey();
     const res = await fetch(`${API_URL}/tasks?db_id=${TASKS_DB}&week=${WEEK_KEY}`);
     const data = await res.json();
     if(data.results){
@@ -356,7 +343,6 @@ async function loadFromNotion(){
 
 async function syncToNotion(){
   setSyncStatus('저장 중...');
-  const WEEK_KEY = getWeekKey();
   try{
     for(const task of state.tasks){
       const catLabel = CATS.find(c => c.key === task.cat)?.label || '🗂️ 기타';
