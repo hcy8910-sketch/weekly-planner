@@ -174,11 +174,6 @@ input.sticky-val:focus{outline:none;}
   </div>
 </div>
 
-<!-- 과거/미래 주차 열람 배너 -->
-<div class="past-week-banner" id="pastWeekBanner">
-  <span>👁️ <strong id="bannerWeekKey"></strong> 주차를 보고 있어요. 수정사항은 자동 저장됩니다.</span>
-</div>
-
 <div class="sticky-bar" id="stickyBar">
   <span class="sticky-label">⭐ 이번주 원씽</span>
   <input class="sticky-val empty" id="stickyVal" placeholder="아직 입력하지 않았어요" oninput="updateStickyOnethingFromBar()">
@@ -242,13 +237,16 @@ function getWeekInfoFromDate(baseDate){
 
   const KEYS = ['mon','tue','wed','thu','fri','sat','sun'];
   const DAY_LABELS = ['월','화','수','목','금','토','일'];
-  const todayKey = KEYS[dow === 0 ? 6 : dow - 1];
 
+  const realToday = new Date();
   const days = KEYS.map((key, i) => {
     const d = new Date(mon);
     d.setDate(mon.getDate() + i);
     const label = `${DAY_LABELS[i]} ${d.getMonth()+1}/${d.getDate()}`;
-    const type = key === todayKey ? 'today' : (i >= 5 ? 'weekend' : 'weekday');
+    const isToday = d.getFullYear() === realToday.getFullYear()
+      && d.getMonth() === realToday.getMonth()
+      && d.getDate() === realToday.getDate();
+    const type = isToday ? 'today' : (i >= 5 ? 'weekend' : 'weekday');
     return { key, label, type, date: d };
   });
 
@@ -310,27 +308,16 @@ function updateWeekNav(){
   const navMon = info.days[0].date;
   const navSun = info.days[6].date;
   const navFmt = d => `${d.getMonth()+1}/${d.getDate()}`;
-  const DAY_KO2 = ['일','월','화','수','목','금','토'];
-  document.getElementById('navWeekKey').textContent = `${navFmt(navMon)}(${DAY_KO2[navMon.getDay()]}) ~ ${navFmt(navSun)}(${DAY_KO2[navSun.getDay()]})`;
+  document.getElementById('navWeekKey').textContent = `${navFmt(navMon)} ~ ${navFmt(navSun)}`;
   document.getElementById('weekRange').textContent = info.rangeText;
 
   const todayBtn = document.getElementById('todayBtn');
-  const banner = document.getElementById('pastWeekBanner');
-  const bannerKey = document.getElementById('bannerWeekKey');
-
   if(isCurrentWeek()){
     todayBtn.classList.add('current');
     todayBtn.textContent = '현재주 ✓';
-    banner.classList.remove('show');
   } else {
     todayBtn.classList.remove('current');
     todayBtn.textContent = '현재주';
-    const mon = info.days[0].date;
-    const sun = info.days[6].date;
-    const fmt = d => `${d.getMonth()+1}/${d.getDate()}`;
-    const DAY_KO = ['일','월','화','수','목','금','토'];
-    bannerKey.textContent = `${fmt(mon)}(${DAY_KO[mon.getDay()]}) ~ ${fmt(sun)}(${DAY_KO[sun.getDay()]})`;
-    banner.classList.add('show');
   }
 }
 
@@ -387,15 +374,11 @@ async function loadFromNotion(){
 
   try{
     const WEEK_KEY = getWeekKey();
-    const res = await fetch(`${API_URL}/tasks?db_id=${TASKS_DB}`);
+    const res = await fetch(`${API_URL}/tasks?db_id=${TASKS_DB}&week=${WEEK_KEY}`);
     const data = await res.json();
     if(data.results){
       const notionTasks = data.results
         .filter(p => !p.archived)
-        .filter(p => {
-          const wk = p.properties['주차']?.rich_text?.[0]?.plain_text || '';
-          return wk === WEEK_KEY;
-        })
         .map(p => ({
           id: p.id,
           notionId: p.id,
@@ -410,13 +393,10 @@ async function loadFromNotion(){
       }
     }
 
-    const mres = await fetch(`${API_URL}/meta?db_id=${META_DB}`);
+    const mres = await fetch(`${API_URL}/meta?db_id=${META_DB}&week=${WEEK_KEY}`);
     const mdata = await mres.json();
     if(mdata.results){
-      const WEEK_KEY = getWeekKey();
-      const metaPage = mdata.results.find(p =>
-        (p.properties['주차']?.title?.[0]?.plain_text || '') === WEEK_KEY
-      );
+      const metaPage = mdata.results[0];
       if(metaPage){
         notionMetaPageId = metaPage.id;
         const props = metaPage.properties;
@@ -789,19 +769,18 @@ async function resetWeek(){
   setSyncStatus('전주 데이터 확인 중...');
   let prevTasks = [];
   try{
-    const res = await fetch(`${API_URL}/tasks?db_id=${TASKS_DB}`);
+    const prevMon = new Date(TODAY_WEEK_INFO.mon);
+    prevMon.setDate(prevMon.getDate() - 7);
+    const jan4 = new Date(prevMon.getFullYear(), 0, 4);
+    const s = new Date(jan4); s.setDate(jan4.getDate() - (jan4.getDay() || 7) + 1);
+    const prevWkNum = Math.round((prevMon - s) / (7 * 86400000)) + 1;
+    const prevWkKey = `${prevMon.getFullYear()}-W${String(prevWkNum).padStart(2, '0')}`;
+
+    const res = await fetch(`${API_URL}/tasks?db_id=${TASKS_DB}&week=${prevWkKey}`);
     const data = await res.json();
     if(data.results){
-      const prevMon = new Date(TODAY_WEEK_INFO.mon);
-      prevMon.setDate(prevMon.getDate() - 7);
-      const jan4 = new Date(prevMon.getFullYear(), 0, 4);
-      const s = new Date(jan4); s.setDate(jan4.getDate() - (jan4.getDay() || 7) + 1);
-      const prevWkNum = Math.round((prevMon - s) / (7 * 86400000)) + 1;
-      const prevWkKey = `${prevMon.getFullYear()}-W${String(prevWkNum).padStart(2, '0')}`;
-
       prevTasks = data.results
         .filter(p => !p.archived)
-        .filter(p => (p.properties['주차']?.rich_text?.[0]?.plain_text || '') === prevWkKey)
         .filter(p => !(p.properties['완료']?.checkbox))
         .map(p => ({
           notionId: p.id,
