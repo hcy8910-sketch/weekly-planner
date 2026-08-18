@@ -38,12 +38,12 @@ body{font-family:'Noto Sans KR',sans-serif;background:var(--bg);color:var(--text
 .btn-sync{background:#E6F1FB;border-color:#378ADD;color:#0C447C;}
 .btn-sync:hover{background:#CCE4F7;}
 .sync-status{font-size:11px;color:var(--text-tertiary);padding:5px 8px;align-self:center;}
-.sticky-bar{position:sticky;top:0;z-index:100;background:#FFFBF2;border:1px solid var(--invest-border);border-radius:var(--radius-sm);padding:8px 14px;margin-bottom:14px;display:flex;align-items:center;gap:10px;box-shadow:0 2px 8px rgba(0,0,0,.07);width:calc(168px * 7 + 10px * 6);}
+.sticky-bar{position:sticky;top:0;z-index:100;background:#FFFBF2;border:1px solid var(--invest-border);border-radius:var(--radius-sm);padding:8px 14px;margin-bottom:14px;display:flex;align-items:center;gap:10px;box-shadow:0 2px 8px rgba(0,0,0,.07);width:100%;}
 .sticky-label{font-size:11px;font-weight:700;color:#854F0B;white-space:nowrap;}
 .sticky-val{font-size:13px;font-weight:600;color:#633806;flex:1;}
 .sticky-val.empty{color:var(--text-tertiary);font-weight:400;font-size:12px;}
-.top-section{display:grid;grid-template-columns:168px calc(168px * 6 + 10px * 5);gap:10px;margin-bottom:16px;}
-@media(max-width:700px){.top-section{grid-template-columns:1fr;}.sticky-bar{width:100%;}.board{min-width:unset;flex-wrap:nowrap;overflow-x:auto;}}
+.top-section{display:grid;grid-template-columns:1fr 6.3fr;gap:10px;margin-bottom:16px;}
+@media(max-width:700px){.top-section{grid-template-columns:1fr;}.sticky-bar{width:100%;}.board{flex-wrap:nowrap;}}
 .section-box{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);overflow:hidden;}
 .section-box-title{background:var(--surface2);font-size:11px;font-weight:700;color:var(--text-secondary);padding:7px 12px;border-bottom:1px solid var(--border);letter-spacing:.03em;}
 .onething-input{width:100%;border:none;outline:none;padding:10px 12px;font-size:13px;font-weight:500;font-family:'Noto Sans KR',sans-serif;background:transparent;color:var(--text-primary);}
@@ -84,8 +84,8 @@ body{font-family:'Noto Sans KR',sans-serif;background:var(--bg);color:var(--text
 .leg-dot{width:8px;height:8px;border-radius:2px;}
 .section-title{font-size:12px;font-weight:600;color:var(--text-primary);margin-bottom:8px;}
 .board-wrap{overflow-x:auto;padding-bottom:8px;}
-.board{display:flex;gap:10px;min-width:max-content;align-items:flex-start;}
-.col{width:168px;background:var(--surface2);border-radius:var(--radius);padding:10px 8px;min-height:500px;flex-shrink:0;display:flex;flex-direction:column;}
+.board{display:flex;gap:10px;align-items:flex-start;}
+.col{flex:1 1 0;min-width:200px;background:var(--surface2);border-radius:var(--radius);padding:10px 8px;min-height:500px;display:flex;flex-direction:column;}
 .col.today{background:var(--today);outline:1.5px solid var(--today-border);}
 .col.weekend{background:var(--weekend);}
 .col.drag-over{background:#dff0ff;outline:2px dashed var(--today-border);}
@@ -107,6 +107,28 @@ body{font-family:'Noto Sans KR',sans-serif;background:var(--bg);color:var(--text
 .card.done .card-name{text-decoration:line-through;}
 .card-name{font-size:11px;font-weight:500;color:var(--text-primary);line-height:1.4;border:none;outline:none;background:transparent;width:100%;font-family:'Noto Sans KR',sans-serif;cursor:text;display:block;}
 .card-name:focus{background:#F0EEE8;border-radius:2px;cursor:text;}
+/* ==================== 타임트래커 ==================== */
+.tt-wrap{margin-top:10px;border-top:1px solid var(--border);padding-top:8px;flex-shrink:0;}
+.tt-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:5px;}
+.tt-title{font-size:10px;font-weight:700;color:var(--text-secondary);letter-spacing:.03em;}
+.col.today .tt-title{color:var(--today-text);}
+.tt-colhead{display:flex;padding:0 0 3px 44px;}
+.tt-colhead span{flex:1;font-size:10px;color:var(--text-tertiary);text-align:center;}
+.tt-grid{border:1px solid var(--border);border-radius:var(--radius-sm);background:var(--surface);overflow:hidden;}
+.tt-row{display:flex;align-items:stretch;border-bottom:1px solid var(--border);}
+.tt-row:last-child{border-bottom:none;}
+.tt-row.tt-now{background:#FFFBF2;}
+.tt-time{width:44px;flex-shrink:0;background:var(--surface2);display:flex;flex-direction:column;align-items:center;justify-content:center;line-height:1.25;padding:3px 0;}
+.col.today .tt-time{background:#DEEBFA;}
+.tt-time span{font-size:10px;color:var(--text-secondary);letter-spacing:-.02em;}
+.col.today .tt-time span{color:var(--today-text);}
+.tt-cell{flex:1;min-width:0;display:flex;}
+.tt-cell.plan{border-right:1px solid var(--border);}
+.tt-input{width:100%;border:none;outline:none;background:transparent;font-family:'Noto Sans KR',sans-serif;font-size:11px;line-height:1.35;color:var(--text-primary);padding:4px 5px;resize:none;overflow:hidden;min-height:30px;display:block;}
+.tt-input::placeholder{color:transparent;}
+.tt-input:focus{background:#F0EEE8;}
+.tt-cell.act .tt-input{color:var(--read-tag);}
+
 .col-spacer{flex:1;}
 .daily-note-wrap{margin-top:10px;border-top:1px solid var(--border);padding-top:8px;flex-shrink:0;}
 .daily-note-label{font-size:10px;font-weight:600;color:var(--text-tertiary);margin-bottom:4px;}
@@ -283,6 +305,7 @@ function checkReadonlyMode(){
     <button class="btn" onclick="window.close()">✕ 닫기</button>
   `;
   document.getElementById('stickyBar').style.pointerEvents = 'none';
+  isReadonly = true;
   loadWeekReadonly(weekParam);
   return true;
 }
@@ -312,6 +335,7 @@ async function loadWeekReadonly(weekKey){
       getDayKeys().forEach(k => {
         state.notes[k] = props[k+'_note']?.rich_text?.[0]?.plain_text || '';
         state.events[k] = props[k+'_event']?.rich_text?.[0]?.plain_text || '';
+        state.times[k] = parseTimeProp(props[k+'_time']?.rich_text?.[0]?.plain_text || '');
       });
     }
     document.getElementById('weekRange').textContent = weekKey + ' 주차 기록';
@@ -335,17 +359,54 @@ const CATS = [
   {key:'etc',    label:'🗂️ 기타',   catClass:'cat-etc'},
 ];
 
+// 타임트래커: 07:00~09:00(2시간) + 이후 1시간 30분 단위 10구간 = 총 11구간
+const TIME_SLOTS = [
+  ['07:00','09:00'],['09:00','10:30'],['10:30','12:00'],['12:00','13:30'],
+  ['13:30','15:00'],['15:00','16:30'],['16:30','18:00'],['18:00','19:30'],
+  ['19:30','21:00'],['21:00','22:30'],['22:30','24:00']
+];
+
 let state = null;
 let dragId = null;
 let idCounter = 1;
 let notionMetaPageId = null;
 let hasUnsavedChanges = false;
 let autoSaveTimer = null;
+let metaTimeSupported = true;
+let isReadonly = false;
+
+function emptyTimeLog(){ return TIME_SLOTS.map(() => ({p:'', a:''})); }
+
+function normalizeTimes(raw){
+  const out = emptyTimeLog();
+  if(Array.isArray(raw)){
+    for(let i = 0; i < out.length && i < raw.length; i++){
+      const r = raw[i] || {};
+      out[i].p = typeof r.p === 'string' ? r.p : '';
+      out[i].a = typeof r.a === 'string' ? r.a : '';
+    }
+  }
+  return out;
+}
+
+function parseTimeProp(text){
+  if(!text) return emptyTimeLog();
+  try{ return normalizeTimes(JSON.parse(text)); } catch(e){ return emptyTimeLog(); }
+}
+
+function ensureTimesShape(){
+  if(!state.times || typeof state.times !== 'object') state.times = {};
+  ['mon','tue','wed','thu','fri','sat','sun'].forEach(k => {
+    state.times[k] = normalizeTimes(state.times[k]);
+  });
+}
 
 function initState(){
-  const notes = {}, events = {};
-  ['mon','tue','wed','thu','fri','sat','sun'].forEach(k => { notes[k] = ''; events[k] = ''; });
-  return { weekOnething:'', tasks:[], notes, events, week: getWeekKey() };
+  const notes = {}, events = {}, times = {};
+  ['mon','tue','wed','thu','fri','sat','sun'].forEach(k => {
+    notes[k] = ''; events[k] = ''; times[k] = emptyTimeLog();
+  });
+  return { weekOnething:'', tasks:[], notes, events, times, week: getWeekKey() };
 }
 
 function saveLocal(){
@@ -369,6 +430,7 @@ function loadLocal(){
 async function loadFromNotion(){
   setSyncStatus('불러오는 중...');
   state = loadLocal() || initState();
+  ensureTimesShape();
   try{
     const res = await fetch(`${API_URL}/tasks?db_id=${TASKS_DB}&week=${WEEK_KEY}`);
     const data = await res.json();
@@ -400,6 +462,8 @@ async function loadFromNotion(){
         getDayKeys().forEach(k => {
           state.notes[k] = props[k+'_note']?.rich_text?.[0]?.plain_text || '';
           state.events[k] = props[k+'_event']?.rich_text?.[0]?.plain_text || '';
+          const tRaw = props[k+'_time']?.rich_text?.[0]?.plain_text;
+          if(tRaw) state.times[k] = parseTimeProp(tRaw);
         });
       } else {
         notionMetaPageId = null;
@@ -451,28 +515,46 @@ async function syncToNotion(){
         if(saved.id) task.notionId = saved.id;
       }
     }
-    const metaProps = {
-      '주차':{title:[{text:{content:WEEK_KEY}}]},
-      '원씽':{rich_text:[{text:{content:state.weekOnething||''}}]},
-    };
-    getDayKeys().forEach(k => {
-      metaProps[k+'_note'] = {rich_text:[{text:{content:state.notes[k]||''}}]};
-      metaProps[k+'_event'] = {rich_text:[{text:{content:state.events[k]||''}}]};
-    });
-    if(notionMetaPageId){
-      await fetch(`${API_URL}/meta/${notionMetaPageId}`, {
-        method:'PATCH',
-        headers:{'Content-Type':'application/json'},
-        body: JSON.stringify({properties:metaProps})
+    const buildMetaProps = (includeTime) => {
+      const p = {
+        '주차':{title:[{text:{content:WEEK_KEY}}]},
+        '원씽':{rich_text:[{text:{content:state.weekOnething||''}}]},
+      };
+      getDayKeys().forEach(k => {
+        p[k+'_note'] = {rich_text:[{text:{content:state.notes[k]||''}}]};
+        p[k+'_event'] = {rich_text:[{text:{content:state.events[k]||''}}]};
+        if(includeTime){
+          const log = state.times[k] || emptyTimeLog();
+          const hasData = log.some(s => (s.p||'').trim() || (s.a||'').trim());
+          p[k+'_time'] = {rich_text:[{text:{content: hasData ? JSON.stringify(log) : ''}}]};
+        }
       });
-    } else {
+      return p;
+    };
+
+    const saveMeta = async (props) => {
+      if(notionMetaPageId){
+        return await fetch(`${API_URL}/meta/${notionMetaPageId}`, {
+          method:'PATCH',
+          headers:{'Content-Type':'application/json'},
+          body: JSON.stringify({properties:props})
+        });
+      }
       const res = await fetch(`${API_URL}/meta`, {
         method:'POST',
         headers:{'Content-Type':'application/json'},
-        body: JSON.stringify({parent:{database_id:META_DB}, properties:metaProps})
+        body: JSON.stringify({parent:{database_id:META_DB}, properties:props})
       });
-      const saved = await res.json();
+      const saved = await res.clone().json().catch(() => ({}));
       if(saved.id) notionMetaPageId = saved.id;
+      return res;
+    };
+
+    let metaRes = await saveMeta(buildMetaProps(metaTimeSupported));
+    // 메타 DB에 *_time 속성이 없으면 해당 필드를 빼고 재시도 (기존 저장 기능 보호)
+    if(!metaRes.ok && metaTimeSupported){
+      metaTimeSupported = false;
+      metaRes = await saveMeta(buildMetaProps(false));
     }
     try{ localStorage.setItem('planner_' + WEEK_KEY, JSON.stringify(state)); } catch(e){}
     hasUnsavedChanges = false;
@@ -704,6 +786,84 @@ function renderTopTodo(){
   });
 }
 
+// ==================== 렌더: 타임트래커 ====================
+function autoGrowInput(ta){
+  ta.style.height = 'auto';
+  ta.style.height = ta.scrollHeight + 'px';
+}
+
+function getCurrentSlotIndex(){
+  const now = new Date();
+  const mins = now.getHours() * 60 + now.getMinutes();
+  for(let i = 0; i < TIME_SLOTS.length; i++){
+    const [sh, sm] = TIME_SLOTS[i][0].split(':').map(Number);
+    const [eh, em] = TIME_SLOTS[i][1].split(':').map(Number);
+    const start = sh * 60 + sm;
+    const end = eh * 60 + em;
+    if(mins >= start && mins < end) return i;
+  }
+  return -1;
+}
+
+function buildTimeTracker(dayKey){
+  const isTodayCol = getDays().find(d => d.key === dayKey)?.type === 'today';
+  const nowIdx = isTodayCol ? getCurrentSlotIndex() : -1;
+  const log = state.times[dayKey] || (state.times[dayKey] = emptyTimeLog());
+
+  const wrap = document.createElement('div');
+  wrap.className = 'tt-wrap';
+
+  const head = document.createElement('div');
+  head.className = 'tt-head';
+  const title = document.createElement('span');
+  title.className = 'tt-title';
+  title.textContent = '🕐 타임트래커';
+  head.appendChild(title);
+  wrap.appendChild(head);
+
+  const colhead = document.createElement('div');
+  colhead.className = 'tt-colhead';
+  colhead.innerHTML = '<span>계획</span><span>실행</span>';
+  wrap.appendChild(colhead);
+
+  const grid = document.createElement('div');
+  grid.className = 'tt-grid';
+
+  TIME_SLOTS.forEach((slot, i) => {
+    const row = document.createElement('div');
+    row.className = 'tt-row' + (i === nowIdx ? ' tt-now' : '');
+
+    const timeCell = document.createElement('div');
+    timeCell.className = 'tt-time';
+    timeCell.innerHTML = `<span>${slot[0]}~</span><span>${slot[1]}</span>`;
+    row.appendChild(timeCell);
+
+    ['p','a'].forEach(field => {
+      const cell = document.createElement('div');
+      cell.className = 'tt-cell ' + (field === 'p' ? 'plan' : 'act');
+      const ta = document.createElement('textarea');
+      ta.className = 'tt-input';
+      ta.rows = 1;
+      ta.placeholder = field === 'p' ? '계획' : '실행';
+      ta.value = log[i][field] || '';
+      if(isReadonly) ta.readOnly = true;
+      ta.addEventListener('input', e => {
+        state.times[dayKey][i][field] = e.target.value;
+        autoGrowInput(e.target);
+        saveLocal();
+      });
+      ta.addEventListener('mousedown', e => e.stopPropagation());
+      cell.appendChild(ta);
+      row.appendChild(cell);
+    });
+
+    grid.appendChild(row);
+  });
+
+  wrap.appendChild(grid);
+  return wrap;
+}
+
 // ==================== 렌더: 주간 보드 ====================
 function renderBoard(){
   const board = document.getElementById('board');
@@ -766,6 +926,8 @@ function renderBoard(){
       col.appendChild(group);
     });
 
+    col.appendChild(buildTimeTracker(day.key));
+
     const spacer = document.createElement('div');
     spacer.className = 'col-spacer';
     col.appendChild(spacer);
@@ -797,6 +959,7 @@ function renderBoard(){
     });
     board.appendChild(col);
   });
+  board.querySelectorAll('.tt-input').forEach(autoGrowInput);
 }
 
 // ==================== 컨텍스트 메뉴 ====================
@@ -1029,6 +1192,16 @@ function exportData(){
       if(ct.length){ text += `  ${cat.label}\n`; ct.forEach(t => text += `    ${t.done?'[✓]':'[ ]'} ${t.name}\n`); }
     });
     if(note) text += `  📝 소감: ${note}\n`;
+  });
+  text += '\n[타임트래커]\n';
+  getDays().forEach(day => {
+    const log = state.times[day.key] || [];
+    const rows = log.map((s, i) => ({s, i})).filter(x => (x.s.p||'').trim() || (x.s.a||'').trim());
+    if(!rows.length) return;
+    text += `\n${day.label}\n`;
+    rows.forEach(({s, i}) => {
+      text += `  ${TIME_SLOTS[i][0]}~${TIME_SLOTS[i][1]}  계획: ${s.p || '-'} / 실행: ${s.a || '-'}\n`;
+    });
   });
   try{ navigator.clipboard.writeText(text).then(() => alert('복사 완료!')); }
   catch(e){ const ta = document.createElement('textarea'); ta.value = text; document.body.appendChild(ta); ta.select(); document.execCommand('copy'); document.body.removeChild(ta); alert('복사 완료!'); }
